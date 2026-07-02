@@ -49,7 +49,6 @@ export const ROUTE_PERMISSIONS = {
   '/reportes': 'reportes.read',
   '/documentos': 'documentos.read',
   '/respaldo': 'backup.read',
-  '/estado-sistema': 'configuracion.read',
   '/usuarios': 'usuarios.read',
   '/auditoria': 'auditoria.read',
   '/configuracion': 'configuracion.read',

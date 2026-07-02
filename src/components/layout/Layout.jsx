@@ -3,9 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { navigation } from '../../data/navigation.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
-import { isFirebaseMode } from '../../services/repositories/repositoryFactory.js'
-import { USE_EMULATORS } from '../../services/firebase/config.js'
-import { APP_VERSION, getRuntimeModeLabel } from '../../config/runtime.js'
+import { APP_VERSION } from '../../config/runtime.js'
 
 const QUICK_SALE_PATH = '/venta-rapida'
 
@@ -30,10 +28,14 @@ export function Layout() {
   const quickSaleNavigation = navigation.find((item) => item.path === QUICK_SALE_PATH)
   const canUseQuickSale = quickSaleNavigation ? hasPermission(quickSaleNavigation.permission) : false
   const visibleNavigation = useMemo(() => {
-    const baseNavigation = navigation.filter((item) => item.path !== QUICK_SALE_PATH && hasPermission(item.permission))
+    const baseNavigation = navigation.filter((item) => (
+      item.path !== QUICK_SALE_PATH
+      && hasPermission(item.permission)
+    ))
     return sortNavigationByAdminOrder(baseNavigation, appSettings.navOrder)
   }, [appSettings.navOrder, hasPermission])
-  const modeLabel = getRuntimeModeLabel({ firebaseMode: isFirebaseMode, emulators: USE_EMULATORS })
+  const clinicName = appSettings.clinicName || 'Sistema Veterinaria'
+  const logoText = String(appSettings.logoText || 'V+').slice(0, 4).toUpperCase()
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -62,10 +64,10 @@ export function Layout() {
       <aside className="sidebar">
         <div className="brand-row">
           <div className="brand">
-            <div className="brand-mark">V+</div>
+            <div className="brand-mark" style={{ background: appSettings.primaryColor || undefined }}>{logoText}</div>
             <div>
-              <strong>Sistema Veterinaria</strong>
-              <small>{modeLabel}</small>
+              <strong>{clinicName}</strong>
+              <small>Gestión veterinaria profesional</small>
             </div>
           </div>
 
@@ -96,7 +98,7 @@ export function Layout() {
         <div className="sidebar-footer">
           <small>Sesión</small>
           <strong>{user?.displayName || user?.email}</strong>
-          <span className="version-pill">v{APP_VERSION}</span>
+          <span className="version-pill">Sistema v{APP_VERSION}</span>
           <button className="btn btn-ghost full" onClick={logout}>Cerrar sesión</button>
         </div>
       </aside>

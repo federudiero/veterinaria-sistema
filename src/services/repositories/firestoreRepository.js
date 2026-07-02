@@ -20,7 +20,7 @@ import {
 import { auth, db } from '../firebase/client.js'
 import { TENANT_ID } from '../firebase/config.js'
 import { seedData } from '../../data/seedData.js'
-import { MAX_LIST_LIMIT } from '../../config/performance.js'
+import { EXPORT_BATCH_SIZE, MAX_EXPORT_ROWS, MAX_LIST_LIMIT } from '../../config/performance.js'
 import { buildSearchPayload, normalizeSearchText } from '../../utils/search.js'
 import { calculateSalePricing } from '../../utils/salesPricing.js'
 
@@ -167,6 +167,26 @@ export async function fetchCollectionPage(collectionName, options = {}) {
     hasMore: snapshot.docs.length === pageSize,
     pageSize,
   }
+}
+
+export async function fetchCollectionForExport(collectionName, options = {}) {
+  const rows = []
+  let startAfterDoc = null
+  let hasMore = true
+
+  while (hasMore && rows.length < MAX_EXPORT_ROWS) {
+    const limitCount = Math.min(EXPORT_BATCH_SIZE, MAX_EXPORT_ROWS - rows.length)
+    const result = await fetchCollectionPage(collectionName, {
+      ...options,
+      startAfterDoc,
+      limitCount,
+    })
+    rows.push(...(result.rows || []))
+    startAfterDoc = result.lastDoc
+    hasMore = Boolean(result.hasMore && result.lastDoc)
+  }
+
+  return { rows, truncated: hasMore, maxRows: MAX_EXPORT_ROWS }
 }
 
 export async function getCollectionCount(collectionName, options = {}) {
@@ -414,6 +434,8 @@ export async function createSaleTransaction(input) {
         relatedSaleId: saleRef.id,
         clientId: input.clientId || '',
         patientId: input.patientId || '',
+        clientName: input.clientName || '',
+        patientName: input.patientName || '',
         ...shiftPayload({ ...input, ...(shift || {}) }),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -576,6 +598,8 @@ export async function createReminderSaleTransaction(input) {
         relatedReminderId: input.reminderId || '',
         clientId: input.clientId || '',
         patientId: input.patientId || '',
+        clientName: input.clientName || '',
+        patientName: input.patientName || '',
         ...shiftPayload({ ...input, ...(shift || {}) }),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -669,6 +693,8 @@ export async function collectSaleTransaction(sale, input = {}) {
       relatedSaleId: sale.id,
       clientId: currentSale.clientId || '',
       patientId: currentSale.patientId || '',
+      clientName: currentSale.clientName || '',
+      patientName: currentSale.patientName || '',
       ...shiftPayload({ ...currentSale, ...input }),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),

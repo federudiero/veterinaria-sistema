@@ -91,7 +91,7 @@ function downloadBlob(content, filename, type) {
 }
 
 function formatClinicLine(settings = {}) {
-  return [settings.legalName, settings.address, settings.phone, settings.email, settings.cuit ? `CUIT ${settings.cuit}` : '', settings.website, settings.instagram]
+  return [settings.legalName, settings.address, settings.phone, settings.whatsapp ? `WhatsApp ${settings.whatsapp}` : '', settings.email, settings.cuit ? `CUIT ${settings.cuit}` : '', settings.taxCondition, settings.website, settings.instagram]
     .filter(Boolean)
     .join(' · ')
 }

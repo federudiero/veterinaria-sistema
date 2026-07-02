@@ -21,7 +21,7 @@ export function DataTable({ columns, rows, empty = 'No hay registros.', actions 
                   <span className="cell-content">{column.render ? column.render(row) : row[column.key] ?? '-'}</span>
                 </td>
               ))}
-              {actions && <td className="row-actions">{actions(row)}</td>}
+              {actions && <td className="row-actions" data-label="Acciones">{actions(row)}</td>}
             </tr>
           ))}
         </tbody>

@@ -3,6 +3,7 @@ import { CrudPage } from '../common/CrudPage.jsx'
 import { useLookups } from '../../hooks/useLookups.js'
 import { dateLabel, todayISO } from '../../utils/formatters.js'
 import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
+import { withClientPatientLookupFields } from '../../utils/lookupPayload.js'
 
 export function VaccinesPage() {
   const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
@@ -27,6 +28,10 @@ export function VaccinesPage() {
     ],
   })
 
+  function normalizeLookupPayload(payload) {
+    return withClientPatientLookupFields(payload, { clientMap, patientMap, clientById, patientById })
+  }
+
   return (
     <CrudPage
       collectionName="vaccines"
@@ -34,7 +39,9 @@ export function VaccinesPage() {
       title="Vacunas y antiparasitarios"
       description="Calendario sanitario por paciente, lote aplicado, vencimiento y próximo refuerzo. Exportación lista para carnet o control sanitario."
       createLabel="Nueva aplicación"
-      searchFields={['vaccine', 'batch', 'professional', 'status', 'notes']}
+      searchFields={['date', 'nextDueDate', 'patientName', 'clientName', 'clientPhone', 'vaccine', 'batch', 'professional', 'status', 'notes']}
+      searchPlaceholder="Buscar vacuna por paciente, cliente, teléfono, aplicación, lote, profesional o estado..."
+      beforeSave={normalizeLookupPayload}
       exportColumns={exportColumns}
       initialValues={{ date: todayISO(), nextDueDate: '', clientId: '', patientId: '', vaccine: '', batch: '', professional: '', status: 'Aplicada', notes: '' }}
       fields={[

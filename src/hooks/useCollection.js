@@ -46,6 +46,12 @@ export function useCollection(collectionName, options = {}) {
 
   const api = useMemo(
     () => ({
+      fetchAllForExport: () => {
+        const exportOptions = JSON.parse(optionsKey)
+        delete exportOptions.limitCount
+        delete exportOptions.startAfterDoc
+        return repository.fetchCollectionForExport(collectionName, exportOptions)
+      },
       create: async (payload) => {
         const id = await repository.createDocument(collectionName, payload)
         refresh()
@@ -68,7 +74,7 @@ export function useCollection(collectionName, options = {}) {
       },
       refresh,
     }),
-    [collectionName, refresh],
+    [collectionName, optionsKey, refresh],
   )
 
   return { items, loading, error, ...api }

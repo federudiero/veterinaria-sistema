@@ -16,8 +16,11 @@ export function useClinicSettings() {
       clinicName: cleanClinicName(app.clinicName),
       legalName: app.legalName || '',
       cuit: app.cuit || '',
+      taxCondition: app.taxCondition || '',
       address: app.address || '',
       phone: app.phone || '',
+      whatsapp: app.whatsapp || '',
+      emergencyPhone: app.emergencyPhone || '',
       email: app.email || '',
       website: app.website || '',
       instagram: app.instagram || '',
@@ -28,6 +31,14 @@ export function useClinicSettings() {
       footerNote: app.footerNote || '',
       currency: app.currency || 'ARS',
       timezone: app.timezone || 'America/Argentina/Cordoba',
+      businessHours: app.businessHours || '',
+      appointmentInterval: app.appointmentInterval || 30,
+      defaultAppointmentDuration: app.defaultAppointmentDuration || app.appointmentInterval || 30,
+      defaultReminderChannel: app.defaultReminderChannel || 'WhatsApp',
+      defaultReminderText: app.defaultReminderText || '',
+      defaultPaymentMethod: app.defaultPaymentMethod || 'Efectivo',
+      defaultConsultationPrice: app.defaultConsultationPrice || 0,
+      defaultLowStockWarning: app.defaultLowStockWarning || 0,
     }
   }, [settings.items])
 }

@@ -42,8 +42,10 @@ function renderBrand(clinic = {}) {
     legalName && legalName !== clinicName ? legalName : '',
     clinic.address,
     clinic.phone,
+    clinic.whatsapp ? `WhatsApp ${clinic.whatsapp}` : '',
     clinic.email,
     clinic.cuit ? `CUIT ${clinic.cuit}` : '',
+    clinic.taxCondition,
     clinic.website,
     clinic.instagram,
   ].filter(Boolean)

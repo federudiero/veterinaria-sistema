@@ -28,7 +28,7 @@ const initialForm = {
 
 export function PurchasesPage() {
   const purchases = useServerCollectionControls('purchases', { dateField: 'date', statusField: 'status', orderByField: 'date', orderDirection: 'desc' })
-  const { supplierOptions, productOptions, supplierMap, productMap, products } = useLookups()
+  const { supplierOptions, productOptions, supplierMap, productMap, supplierById, productById, products } = useLookups()
   const [modalOpen, setModalOpen] = useState(false)
   const [voidingPurchase, setVoidingPurchase] = useState(null)
   const [voidReason, setVoidReason] = useState('')
@@ -83,6 +83,9 @@ export function PurchasesPage() {
         qty: numberValue(form.qty) || 1,
         cost: numberValue(form.cost),
         supplierName: supplierMap[form.supplierId] || '',
+        supplierPhone: supplierById[form.supplierId]?.phone || '',
+        productName: productMap[form.productId] || selectedProduct?.name || '',
+        productSku: productById[form.productId]?.sku || selectedProduct?.sku || '',
       })
       feedback.success('La compra se registró con reposición de stock, caja y auditoría.')
       purchases.refresh?.()
@@ -133,6 +136,7 @@ export function PurchasesPage() {
               title="Compras"
               subtitle="Compras filtradas con proveedor, producto, stock, caja y estado."
               rows={purchases.items}
+              getRows={purchases.fetchAllForExport}
               columns={exportColumns}
               summary={[
                 { label: 'Compras activas', value: activePurchases.length },
@@ -154,7 +158,7 @@ export function PurchasesPage() {
       <ListToolbar
         query={purchases.query}
         onQueryChange={purchases.setQuery}
-        placeholder="Buscar por proveedor, producto, comprobante o estado..."
+        placeholder="Buscar por proveedor, producto, SKU, comprobante, estado o notas..."
         dateFrom={purchases.dateFrom}
         dateTo={purchases.dateTo}
         onDateFromChange={purchases.setDateFrom}

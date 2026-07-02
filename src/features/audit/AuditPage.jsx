@@ -30,8 +30,9 @@ export function AuditPage() {
             title="Auditoría del sistema"
             subtitle="Eventos filtrados de seguridad y trazabilidad operativa."
             rows={audit.items}
+            getRows={audit.fetchAllForExport}
             columns={columns}
-            summary={[{ label: 'Eventos en página', value: audit.items.length }]}
+            summary={[{ label: 'Eventos visibles en página', value: audit.items.length }]}
             fileLabel="auditoria"
           />
         }

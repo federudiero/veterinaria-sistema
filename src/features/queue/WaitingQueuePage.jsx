@@ -2,6 +2,7 @@ import React from 'react'
 import { CrudPage } from '../common/CrudPage.jsx'
 import { useLookups } from '../../hooks/useLookups.js'
 import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
+import { withClientPatientLookupFields } from '../../utils/lookupPayload.js'
 
 export function WaitingQueuePage() {
   const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
@@ -24,6 +25,10 @@ export function WaitingQueuePage() {
     ],
   })
 
+  function normalizeLookupPayload(payload) {
+    return withClientPatientLookupFields(payload, { clientMap, patientMap, clientById, patientById })
+  }
+
   return (
     <CrudPage
       collectionName="waitingQueue"
@@ -31,7 +36,9 @@ export function WaitingQueuePage() {
       title="Cola de espera"
       description="Ingreso rápido de pacientes que esperan atención, guardia o derivación. Exportación útil para recepción y pase interno."
       createLabel="Agregar a cola"
-      searchFields={['service', 'priority', 'professional', 'status', 'notes']}
+      searchFields={['patientName', 'clientName', 'clientPhone', 'service', 'priority', 'professional', 'status', 'notes']}
+      searchPlaceholder="Buscar cola por cliente, paciente, teléfono, servicio, prioridad, profesional o estado..."
+      beforeSave={normalizeLookupPayload}
       exportColumns={exportColumns}
       initialValues={{ clientId: '', patientId: '', service: '', priority: 'Media', professional: '', status: 'En espera', notes: '' }}
       fields={[

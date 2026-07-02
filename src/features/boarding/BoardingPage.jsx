@@ -3,6 +3,7 @@ import { CrudPage } from '../common/CrudPage.jsx'
 import { useLookups } from '../../hooks/useLookups.js'
 import { dateLabel, money, todayISO } from '../../utils/formatters.js'
 import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
+import { withClientPatientLookupFields } from '../../utils/lookupPayload.js'
 
 export function BoardingPage() {
   const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
@@ -29,6 +30,10 @@ export function BoardingPage() {
     ],
   })
 
+  function normalizeLookupPayload(payload) {
+    return withClientPatientLookupFields(payload, { clientMap, patientMap, clientById, patientById })
+  }
+
   return (
     <CrudPage
       collectionName="boarding"
@@ -36,7 +41,9 @@ export function BoardingPage() {
       title="Internación y guardería"
       description="Control de caniles, medicación, alimentación, importes y estado. Exportación detallada por paciente/contacto."
       createLabel="Nueva internación"
-      searchFields={['room', 'status', 'feeding', 'medication', 'notes']}
+      searchFields={['patientName', 'clientName', 'clientPhone', 'room', 'startDate', 'endDate', 'status', 'feeding', 'medication', 'notes']}
+      searchPlaceholder="Buscar internación por paciente, cliente, teléfono, canil, estado, medicación o alimentación..."
+      beforeSave={normalizeLookupPayload}
       exportColumns={exportColumns}
       initialValues={{ patientId: '', clientId: '', room: '', startDate: todayISO(), endDate: '', status: 'Internado', feeding: '', medication: '', amount: 0, paid: false, notes: '' }}
       fields={[

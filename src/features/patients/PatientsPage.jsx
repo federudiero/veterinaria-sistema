@@ -3,6 +3,7 @@ import { CrudPage } from '../common/CrudPage.jsx'
 import { useLookups } from '../../hooks/useLookups.js'
 import { dateLabel } from '../../utils/formatters.js'
 import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
+import { withClientPatientLookupFields } from '../../utils/lookupPayload.js'
 
 export function PatientsPage() {
   const { clientOptions, clientMap, clientById } = useLookups()
@@ -17,6 +18,10 @@ export function PatientsPage() {
     { key: 'status', label: 'Estado' },
   ]
 
+  function normalizePatientPayload(payload) {
+    return withClientPatientLookupFields(payload, { clientMap, clientById })
+  }
+
   return (
     <CrudPage
       collectionName="patients"
@@ -24,7 +29,9 @@ export function PatientsPage() {
       title="Pacientes"
       description="Ficha principal de cada mascota vinculada a su dueño. La exportación incluye datos completos del contacto responsable."
       createLabel="Nuevo paciente"
-      searchFields={['name', 'species', 'breed', 'chip', 'alerts']}
+      searchFields={['name', 'clientName', 'clientPhone', 'clientEmail', 'species', 'breed', 'chip', 'allergies', 'alerts', 'status']}
+      searchPlaceholder="Buscar paciente por nombre, responsable, teléfono, especie, raza, chip o alerta..."
+      beforeSave={normalizePatientPayload}
       exportColumns={patientContactExportColumns({ clientById, baseColumns: columns })}
       initialValues={{ clientId: '', name: '', species: 'Canino', breed: '', sex: '', birthDate: '', weight: 0, color: '', chip: '', allergies: '', alerts: '', status: 'Activo' }}
       fields={[

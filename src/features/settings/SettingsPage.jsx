@@ -1,12 +1,7 @@
 import React, { useState } from 'react'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
-import { DataTable } from '../../components/ui/DataTable.jsx'
 import { FormGrid } from '../../components/forms/FormGrid.jsx'
-import { ExportButtons } from '../../components/export/ExportButtons.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
-import { repository, isFirebaseMode } from '../../services/repositories/repositoryFactory.js'
-import { APP_CHECK_ENABLED, TENANT_ID, USE_EMULATORS } from '../../services/firebase/config.js'
-import { ALLOW_DEMO_SEED, APP_ENV, APP_VERSION } from '../../config/runtime.js'
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { navigation } from '../../data/navigation.js'
@@ -28,6 +23,10 @@ function labelForPath(path) {
   return item ? `${item.icon} ${item.label}` : path
 }
 
+function sanitizeColor(value) {
+  return /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : '#0f766e'
+}
+
 export function SettingsPage() {
   const settings = useCollection('settings')
   const [saving, setSaving] = useState(false)
@@ -41,8 +40,11 @@ export function SettingsPage() {
     clinicName: /veterinaria\s+gen[eé]rica/i.test(String(appSettings.clinicName || '')) ? 'Sistema Veterinaria' : (appSettings.clinicName || 'Sistema Veterinaria'),
     legalName: appSettings.legalName || '',
     cuit: appSettings.cuit || '',
+    taxCondition: appSettings.taxCondition || '',
     address: appSettings.address || '',
     phone: appSettings.phone || '',
+    whatsapp: appSettings.whatsapp || '',
+    emergencyPhone: appSettings.emergencyPhone || '',
     email: appSettings.email || '',
     website: appSettings.website || '',
     instagram: appSettings.instagram || '',
@@ -53,26 +55,17 @@ export function SettingsPage() {
     footerNote: appSettings.footerNote || 'Documento emitido por Sistema Veterinaria.',
     currency: appSettings.currency || 'ARS',
     timezone: appSettings.timezone || 'America/Argentina/Cordoba',
+    businessHours: appSettings.businessHours || 'Lunes a viernes 9 a 18 h · Sábados 9 a 13 h',
     appointmentInterval: appSettings.appointmentInterval || 30,
+    defaultAppointmentDuration: appSettings.defaultAppointmentDuration || appSettings.appointmentInterval || 30,
+    defaultReminderChannel: appSettings.defaultReminderChannel || 'WhatsApp',
+    defaultReminderText: appSettings.defaultReminderText || 'Hola, te recordamos el turno de tu mascota en la veterinaria.',
+    defaultPaymentMethod: appSettings.defaultPaymentMethod || 'Efectivo',
+    defaultConsultationPrice: appSettings.defaultConsultationPrice || 0,
+    defaultLowStockWarning: appSettings.defaultLowStockWarning || 5,
     navOrder: normalizeNavOrder(appSettings.navOrder),
   }
 
-  const technicalRows = [
-    { id: 'mode', key: 'Modo de datos', value: isFirebaseMode ? 'Firebase / Firestore' : 'LocalStorage demo' },
-    { id: 'tenant', key: 'Tenant activo', value: TENANT_ID },
-    { id: 'env', key: 'Ambiente', value: APP_ENV },
-    { id: 'version', key: 'Versión', value: APP_VERSION },
-    { id: 'emulators', key: 'Emuladores', value: USE_EMULATORS ? 'Activos' : 'Inactivos' },
-    { id: 'appCheck', key: 'App Check', value: APP_CHECK_ENABLED ? 'Activo' : 'No configurado' },
-    { id: 'storage', key: 'Storage', value: 'Desactivado para evitar Blaze' },
-    { id: 'auth', key: 'Auth recomendado', value: 'Email/Password' },
-    { id: 'exports', key: 'Exportaciones', value: 'PDF por impresión del navegador + Excel .xls sin dependencias externas' },
-  ]
-
-  const technicalColumns = [
-    { key: 'key', label: 'Clave' },
-    { key: 'value', label: 'Valor' },
-  ]
 
   function change(name, value) {
     setForm((current) => ({ ...(current || currentForm), [name]: value }))
@@ -81,6 +74,7 @@ export function SettingsPage() {
   function updateNavOrder(nextOrder) {
     setForm((current) => ({ ...(current || currentForm), navOrder: normalizeNavOrder(nextOrder) }))
   }
+
 
   function moveNavItem(path, direction) {
     if (!canWrite) return
@@ -99,14 +93,22 @@ export function SettingsPage() {
   }
 
   async function save(event) {
-    event.preventDefault()
+    event?.preventDefault?.()
     if (!canWrite) {
       feedback.warning('No tenés permiso para editar la configuración.')
       return
     }
     setSaving(true)
     try {
-      await settings.set('app', { ...currentForm, appointmentInterval: Number(currentForm.appointmentInterval || 30), navOrder: normalizeNavOrder(currentForm.navOrder) })
+      await settings.set('app', {
+        ...currentForm,
+        primaryColor: sanitizeColor(currentForm.primaryColor),
+        appointmentInterval: Number(currentForm.appointmentInterval || 30),
+        defaultAppointmentDuration: Number(currentForm.defaultAppointmentDuration || currentForm.appointmentInterval || 30),
+        defaultConsultationPrice: Number(currentForm.defaultConsultationPrice || 0),
+        defaultLowStockWarning: Number(currentForm.defaultLowStockWarning || 0),
+        navOrder: normalizeNavOrder(currentForm.navOrder),
+      })
       feedback.success('La configuración se guardó correctamente.')
       setForm(null)
     } catch (error) {
@@ -116,80 +118,57 @@ export function SettingsPage() {
     }
   }
 
-  async function seed() {
-    if (!canWrite) {
-      feedback.warning('No tenés permiso para cargar datos demo.')
-      return
-    }
-    if (!ALLOW_DEMO_SEED) {
-      feedback.warning('Los datos demo están deshabilitados en este ambiente.')
-      return
-    }
-    const ok = await feedback.confirm({
-      title: 'Cargar datos demo',
-      message: 'En modo local reinicia los datos. En Firebase solo carga colecciones vacías.',
-      confirmText: 'Cargar datos',
-      tone: 'warning',
-    })
-    if (!ok) return
-    try {
-      await repository.seedDemoData({ overwrite: !isFirebaseMode })
-      feedback.success('Los datos demo se cargaron correctamente.')
-    } catch (error) {
-      feedback.error(error?.message || 'No se pudieron cargar los datos demo.')
-    }
-  }
-
   return (
     <section>
       <SectionHeader
-        eyebrow="Sistema"
-        title="Configuración"
-        description="Datos de la veterinaria, tenant activo y utilidades de arranque. Estos datos aparecen en los PDF y Excel profesionales."
-        actions={
-          <>
-            <ExportButtons
-              title="Configuración del sistema"
-              subtitle="Datos técnicos y comerciales usados por Sistema Veterinaria."
-              rows={technicalRows}
-              columns={technicalColumns}
-              summary={[{ label: 'Tenant', value: TENANT_ID }, { label: 'Modo', value: isFirebaseMode ? 'Firebase' : 'LocalStorage' }]}
-              fileLabel="configuracion-sistema"
-            />
-            {ALLOW_DEMO_SEED && canWrite && <button className="btn" onClick={seed}>Cargar datos demo</button>}
-          </>
-        }
+        eyebrow="Administración"
+        title="Configuración de la veterinaria"
+        description="Datos comerciales, documentos, agenda y parámetros operativos. El cliente puede ajustar estas opciones sin tocar código ni afectar módulos críticos."
+        actions={canWrite && <button className="btn btn-primary" type="button" disabled={saving} onClick={save}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>}
       />
 
-      <div className="two-column">
+      <form onSubmit={save} className="two-column settings-form-grid">
         <article className="panel">
-          <h2>Datos generales</h2>
-          <form onSubmit={save}>
-            <FormGrid
-              value={currentForm}
-              onChange={change}
-              fields={[
-                { name: 'clinicName', label: 'Nombre de la veterinaria' },
-                { name: 'cuit', label: 'CUIT' },
-                { name: 'address', label: 'Dirección' },
-                { name: 'phone', label: 'Teléfono' },
-                { name: 'email', label: 'Email', type: 'email' },
-                { name: 'currency', label: 'Moneda', type: 'select', options: ['ARS', 'USD'] },
-                { name: 'timezone', label: 'Zona horaria' },
-                { name: 'appointmentInterval', label: 'Intervalo turnos min', type: 'number' },
-              ].map((field) => ({ ...field, disabled: !canWrite }))}
-            />
-            {canWrite && (
-              <div className="form-actions">
-                <button className="btn btn-primary" disabled={saving}>{saving ? 'Guardando...' : 'Guardar configuración'}</button>
-              </div>
-            )}
-          </form>
+          <h2>Datos del negocio</h2>
+          <p className="muted">Información visible en documentos, recibos, reportes y comunicaciones.</p>
+          <FormGrid
+            value={currentForm}
+            onChange={change}
+            fields={[
+              { name: 'clinicName', label: 'Nombre comercial' },
+              { name: 'legalName', label: 'Razón social / nombre legal' },
+              { name: 'cuit', label: 'CUIT / identificación fiscal' },
+              { name: 'taxCondition', label: 'Condición fiscal' },
+              { name: 'address', label: 'Dirección' },
+              { name: 'phone', label: 'Teléfono principal' },
+              { name: 'whatsapp', label: 'WhatsApp' },
+              { name: 'emergencyPhone', label: 'Teléfono de urgencias' },
+              { name: 'email', label: 'Email', type: 'email' },
+              { name: 'website', label: 'Sitio web' },
+              { name: 'instagram', label: 'Instagram / red social' },
+            ].map((field) => ({ ...field, disabled: !canWrite }))}
+          />
+        </article>
+
+        <article className="panel">
+          <h2>Documentos e identidad</h2>
+          <p className="muted">Branding usado en recetas, carnet sanitario, historias clínicas, recibos y exportaciones.</p>
+          <FormGrid
+            value={currentForm}
+            onChange={change}
+            fields={[
+              { name: 'logoUrl', label: 'URL del logo', hint: 'Usá una URL pública HTTPS. No requiere Storage.' },
+              { name: 'logoText', label: 'Iniciales si no hay logo' },
+              { name: 'primaryColor', label: 'Color principal HEX', type: 'text', placeholder: '#0f766e' },
+              { name: 'professionalLicense', label: 'Matrícula / responsable técnico' },
+              { name: 'footerNote', label: 'Leyenda al pie de documentos', type: 'textarea', rows: 3 },
+            ].map((field) => ({ ...field, disabled: !canWrite }))}
+          />
 
           <div className="brand-preview-card">
             <div
               className="brand-preview-logo"
-              style={{ background: /^#[0-9a-f]{6}$/i.test(currentForm.primaryColor || '') ? currentForm.primaryColor : '#0f766e' }}
+              style={{ background: sanitizeColor(currentForm.primaryColor) }}
             >
               {currentForm.logoUrl ? <img src={currentForm.logoUrl} alt="Logo" /> : (currentForm.logoText || 'SV').slice(0, 4).toUpperCase()}
             </div>
@@ -201,15 +180,36 @@ export function SettingsPage() {
         </article>
 
         <article className="panel">
+          <h2>Operación diaria</h2>
+          <p className="muted">Parámetros simples que ayudan a estandarizar agenda, recordatorios, caja y alertas.</p>
+          <FormGrid
+            value={currentForm}
+            onChange={change}
+            fields={[
+              { name: 'currency', label: 'Moneda', type: 'select', options: ['ARS', 'USD'] },
+              { name: 'timezone', label: 'Zona horaria' },
+              { name: 'businessHours', label: 'Horario de atención' },
+              { name: 'appointmentInterval', label: 'Intervalo de agenda en minutos', type: 'number', min: 5, step: 5 },
+              { name: 'defaultAppointmentDuration', label: 'Duración sugerida del turno', type: 'number', min: 5, step: 5 },
+              { name: 'defaultReminderChannel', label: 'Canal de recordatorio', type: 'select', options: ['WhatsApp', 'Email', 'Teléfono', 'Mostrador'] },
+              { name: 'defaultReminderText', label: 'Texto base de recordatorio', type: 'textarea', rows: 3 },
+              { name: 'defaultPaymentMethod', label: 'Medio de pago habitual', type: 'select', options: ['Efectivo', 'Transferencia', 'Tarjeta', 'Cuenta corriente'] },
+              { name: 'defaultConsultationPrice', label: 'Precio base de consulta', type: 'number', min: 0, step: 100 },
+              { name: 'defaultLowStockWarning', label: 'Alerta general de stock bajo', type: 'number', min: 0, step: 1 },
+            ].map((field) => ({ ...field, disabled: !canWrite }))}
+          />
+        </article>
+
+        <article className="panel settings-wide-panel">
           <div className="panel-title-row">
             <div>
-              <h2>Orden del navbar</h2>
-              <p className="muted">Definí qué sección aparece primero y cuál queda al final. Aplica al menú de computadora y al menú horizontal de celular. Venta rápida se mantiene como botón separado junto a Salir.</p>
+              <h2>Orden del menú</h2>
+              <p className="muted">Definí qué sección aparece primero y cuál queda al final. No permite ocultar módulos críticos para evitar romper el flujo operativo.</p>
             </div>
             {canWrite && <button className="btn btn-small" type="button" onClick={resetNavOrder}>Restaurar</button>}
           </div>
 
-          <div className="nav-order-list">
+          <div className="nav-order-list nav-order-list-compact">
             {normalizeNavOrder(currentForm.navOrder).map((path, index, order) => (
               <div className="nav-order-item" key={path}>
                 <span className="nav-order-position">{index + 1}</span>
@@ -221,23 +221,18 @@ export function SettingsPage() {
               </div>
             ))}
           </div>
-          {canWrite && (
-            <div className="form-actions">
-              <button className="btn btn-primary" type="button" disabled={saving} onClick={save}>
-                {saving ? 'Guardando...' : 'Guardar orden'}
-              </button>
-            </div>
-          )}
         </article>
 
-        <article className="panel">
-          <div className="panel-title-row">
-            <h2>Estado técnico</h2>
-            <ExportButtons title="Estado técnico" rows={technicalRows} columns={technicalColumns} fileLabel="estado-tecnico" />
-          </div>
-          <DataTable rows={technicalRows} columns={technicalColumns} />
-        </article>
-      </div>
+        {canWrite && (
+          <article className="panel settings-save-panel">
+            <div>
+              <h2>Guardar configuración</h2>
+              <p className="muted">Los cambios se aplican al menú, documentos y parámetros operativos de la veterinaria.</p>
+            </div>
+            <button className="btn btn-primary" disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>
+          </article>
+        )}
+      </form>
     </section>
   )
 }

@@ -29,8 +29,11 @@ export function InitialSetupGate({ children }) {
     clinicName: currentSettings?.clinicName || '',
     legalName: currentSettings?.legalName || '',
     cuit: currentSettings?.cuit || '',
+    taxCondition: currentSettings?.taxCondition || '',
     address: currentSettings?.address || '',
     phone: currentSettings?.phone || '',
+    whatsapp: currentSettings?.whatsapp || '',
+    emergencyPhone: currentSettings?.emergencyPhone || '',
     email: currentSettings?.email || '',
     website: currentSettings?.website || '',
     instagram: currentSettings?.instagram || '',
@@ -41,7 +44,14 @@ export function InitialSetupGate({ children }) {
     footerNote: currentSettings?.footerNote || 'Documento emitido por Sistema Veterinaria.',
     currency: currentSettings?.currency || 'ARS',
     timezone: currentSettings?.timezone || 'America/Argentina/Cordoba',
+    businessHours: currentSettings?.businessHours || 'Lunes a viernes 9 a 18 h · Sábados 9 a 13 h',
     appointmentInterval: currentSettings?.appointmentInterval || 30,
+    defaultAppointmentDuration: currentSettings?.defaultAppointmentDuration || currentSettings?.appointmentInterval || 30,
+    defaultReminderChannel: currentSettings?.defaultReminderChannel || 'WhatsApp',
+    defaultReminderText: currentSettings?.defaultReminderText || 'Hola, te recordamos el turno de tu mascota en la veterinaria.',
+    defaultPaymentMethod: currentSettings?.defaultPaymentMethod || 'Efectivo',
+    defaultConsultationPrice: currentSettings?.defaultConsultationPrice || 0,
+    defaultLowStockWarning: currentSettings?.defaultLowStockWarning || 5,
   })
 
   useEffect(() => {
@@ -50,8 +60,11 @@ export function InitialSetupGate({ children }) {
       clinicName: currentSettings.clinicName || '',
       legalName: currentSettings.legalName || '',
       cuit: currentSettings.cuit || '',
+      taxCondition: currentSettings.taxCondition || '',
       address: currentSettings.address || '',
       phone: currentSettings.phone || '',
+      whatsapp: currentSettings.whatsapp || '',
+      emergencyPhone: currentSettings.emergencyPhone || '',
       email: currentSettings.email || '',
       website: currentSettings.website || '',
       instagram: currentSettings.instagram || '',
@@ -62,7 +75,14 @@ export function InitialSetupGate({ children }) {
       footerNote: currentSettings.footerNote || 'Documento emitido por Sistema Veterinaria.',
       currency: currentSettings.currency || 'ARS',
       timezone: currentSettings.timezone || 'America/Argentina/Cordoba',
+      businessHours: currentSettings.businessHours || 'Lunes a viernes 9 a 18 h · Sábados 9 a 13 h',
       appointmentInterval: currentSettings.appointmentInterval || 30,
+      defaultAppointmentDuration: currentSettings.defaultAppointmentDuration || currentSettings.appointmentInterval || 30,
+      defaultReminderChannel: currentSettings.defaultReminderChannel || 'WhatsApp',
+      defaultReminderText: currentSettings.defaultReminderText || 'Hola, te recordamos el turno de tu mascota en la veterinaria.',
+      defaultPaymentMethod: currentSettings.defaultPaymentMethod || 'Efectivo',
+      defaultConsultationPrice: currentSettings.defaultConsultationPrice || 0,
+      defaultLowStockWarning: currentSettings.defaultLowStockWarning || 5,
     })
   }, [currentSettings])
 
@@ -100,6 +120,9 @@ export function InitialSetupGate({ children }) {
       await settingsCollection.set('app', {
         ...form,
         appointmentInterval: Number(form.appointmentInterval || 30),
+        defaultAppointmentDuration: Number(form.defaultAppointmentDuration || form.appointmentInterval || 30),
+        defaultConsultationPrice: Number(form.defaultConsultationPrice || 0),
+        defaultLowStockWarning: Number(form.defaultLowStockWarning || 0),
         setupCompleted: true,
         setupCompletedAt: new Date().toISOString(),
       })
@@ -135,8 +158,11 @@ export function InitialSetupGate({ children }) {
               { name: 'clinicName', label: 'Nombre comercial', required: true },
               { name: 'legalName', label: 'Razón social / nombre legal' },
               { name: 'cuit', label: 'CUIT / Identificación fiscal', required: true },
+              { name: 'taxCondition', label: 'Condición fiscal' },
               { name: 'address', label: 'Dirección', required: true },
               { name: 'phone', label: 'Teléfono', required: true },
+              { name: 'whatsapp', label: 'WhatsApp' },
+              { name: 'emergencyPhone', label: 'Teléfono de urgencias' },
               { name: 'email', label: 'Email', type: 'email', required: true },
               { name: 'website', label: 'Sitio web' },
               { name: 'instagram', label: 'Instagram / red social' },
@@ -147,7 +173,13 @@ export function InitialSetupGate({ children }) {
               { name: 'footerNote', label: 'Leyenda al pie de documentos', type: 'textarea' },
               { name: 'currency', label: 'Moneda', type: 'select', options: ['ARS', 'USD'] },
               { name: 'timezone', label: 'Zona horaria' },
+              { name: 'businessHours', label: 'Horario de atención' },
               { name: 'appointmentInterval', label: 'Intervalo turnos min', type: 'number' },
+              { name: 'defaultAppointmentDuration', label: 'Duración sugerida del turno', type: 'number' },
+              { name: 'defaultReminderChannel', label: 'Canal de recordatorio', type: 'select', options: ['WhatsApp', 'Email', 'Teléfono', 'Mostrador'] },
+              { name: 'defaultPaymentMethod', label: 'Medio de pago habitual', type: 'select', options: ['Efectivo', 'Transferencia', 'Tarjeta', 'Cuenta corriente'] },
+              { name: 'defaultConsultationPrice', label: 'Precio base de consulta', type: 'number' },
+              { name: 'defaultLowStockWarning', label: 'Alerta general de stock bajo', type: 'number' },
             ]}
           />
           <div className="system-actions setup-actions">

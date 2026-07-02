@@ -206,8 +206,9 @@ export function CashPage() {
           <>
             <ExportButtons
               title="Movimientos de caja"
-              subtitle="Movimientos filtrados visibles con turno, tipo, metodo, importe, estado y cierre."
+              subtitle="Movimientos filtrados con turno, tipo, metodo, importe, estado y cierre."
               rows={cash.items}
+              getRows={cash.fetchAllForExport}
               columns={movementColumns}
               summary={[
                 { label: 'Ingresos abiertos', value: money(income) },

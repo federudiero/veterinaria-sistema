@@ -1,5 +1,5 @@
 import { seedData } from '../../data/seedData.js'
-import { MAX_LIST_LIMIT } from '../../config/performance.js'
+import { EXPORT_BATCH_SIZE, MAX_EXPORT_ROWS, MAX_LIST_LIMIT } from '../../config/performance.js'
 import { buildSearchPayload, matchesSearch } from '../../utils/search.js'
 import { calculateSalePricing } from '../../utils/salesPricing.js'
 
@@ -183,6 +183,26 @@ export async function fetchCollectionPage(collectionName, options = {}) {
     hasMore: start + rows.length < allRows.length,
     pageSize,
   }
+}
+
+export async function fetchCollectionForExport(collectionName, options = {}) {
+  const rows = []
+  let startAfterDoc = 0
+  let hasMore = true
+
+  while (hasMore && rows.length < MAX_EXPORT_ROWS) {
+    const limitCount = Math.min(EXPORT_BATCH_SIZE, MAX_EXPORT_ROWS - rows.length)
+    const result = await fetchCollectionPage(collectionName, {
+      ...options,
+      startAfterDoc,
+      limitCount,
+    })
+    rows.push(...(result.rows || []))
+    startAfterDoc = result.lastDoc || startAfterDoc + limitCount
+    hasMore = Boolean(result.hasMore)
+  }
+
+  return { rows, truncated: hasMore, maxRows: MAX_EXPORT_ROWS }
 }
 
 export async function getCollectionCount(collectionName, options = {}) {
@@ -379,6 +399,8 @@ export async function createSaleTransaction(input) {
       relatedSaleId: saleId,
       clientId: input.clientId || '',
       patientId: input.patientId || '',
+      clientName: input.clientName || '',
+      patientName: input.patientName || '',
       ...shiftPayload({ ...input, ...(shift || {}) }),
       createdAt: now,
       updatedAt: now,
@@ -524,6 +546,8 @@ export async function createReminderSaleTransaction(input) {
       relatedReminderId: input.reminderId || '',
       clientId: input.clientId || '',
       patientId: input.patientId || '',
+      clientName: input.clientName || '',
+      patientName: input.patientName || '',
       ...shiftPayload({ ...input, ...(shift || {}) }),
       createdAt: now,
       updatedAt: now,

@@ -71,6 +71,12 @@ export function usePagedCollection(collectionName, options = {}) {
   const api = useMemo(
     () => ({
       create: (payload) => repository.createDocument(collectionName, payload),
+      fetchAllForExport: () => {
+        const exportOptions = JSON.parse(optionsKey)
+        delete exportOptions.limitCount
+        delete exportOptions.startAfterDoc
+        return repository.fetchCollectionForExport(collectionName, exportOptions)
+      },
       set: (id, payload) => repository.setDocument(collectionName, id, payload),
       update: (id, payload) => repository.updateDocument(collectionName, id, payload),
       remove: (id) => repository.deleteDocument(collectionName, id),
@@ -89,7 +95,7 @@ export function usePagedCollection(collectionName, options = {}) {
       rawTotal: items.length,
       serverPaged: true,
     }),
-    [collectionName, hasNextPage, items.length, page, pageSize, reset],
+    [collectionName, hasNextPage, items.length, optionsKey, page, pageSize, reset],
   )
 
   return { items, loading, error, ...api }

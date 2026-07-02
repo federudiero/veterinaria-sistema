@@ -3,6 +3,7 @@ import { CrudPage } from '../common/CrudPage.jsx'
 import { useLookups } from '../../hooks/useLookups.js'
 import { dateLabel, todayISO } from '../../utils/formatters.js'
 import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
+import { withClientPatientLookupFields } from '../../utils/lookupPayload.js'
 
 export function PrescriptionsPage() {
   const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
@@ -27,6 +28,10 @@ export function PrescriptionsPage() {
     ],
   })
 
+  function normalizeLookupPayload(payload) {
+    return withClientPatientLookupFields(payload, { clientMap, patientMap, clientById, patientById })
+  }
+
   return (
     <CrudPage
       collectionName="prescriptions"
@@ -34,7 +39,9 @@ export function PrescriptionsPage() {
       title="Recetas e indicaciones"
       description="Indicaciones médicas, diagnóstico, medicación y estado. PDF profesional con datos completos del contacto y paciente."
       createLabel="Nueva receta"
-      searchFields={['professional', 'diagnosis', 'medication', 'instructions', 'status']}
+      searchFields={['date', 'patientName', 'clientName', 'clientPhone', 'professional', 'diagnosis', 'medication', 'instructions', 'status', 'notes']}
+      searchPlaceholder="Buscar receta por paciente, cliente, teléfono, profesional, medicación, diagnóstico o estado..."
+      beforeSave={normalizeLookupPayload}
       exportColumns={exportColumns}
       initialValues={{ date: todayISO(), clientId: '', patientId: '', professional: '', diagnosis: '', medication: '', instructions: '', status: 'Activa', notes: '' }}
       fields={[

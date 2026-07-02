@@ -1,5 +1,7 @@
 export const DEFAULT_LIST_LIMIT = 120
 export const MAX_LIST_LIMIT = 300
+export const EXPORT_BATCH_SIZE = 300
+export const MAX_EXPORT_ROWS = 2000
 export const DEFAULT_PAGE_SIZE = 25
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 

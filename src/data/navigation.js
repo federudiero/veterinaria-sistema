@@ -22,7 +22,6 @@ export const navigation = [
   { path: '/reportes', label: 'Reportes', icon: '📈', permission: 'reportes.read' },
   { path: '/documentos', label: 'Documentos', icon: '📄', permission: 'documentos.read' },
   { path: '/respaldo', label: 'Respaldo', icon: '🗄️', permission: 'backup.read' },
-  { path: '/estado-sistema', label: 'Producción', icon: '🚀', permission: 'configuracion.read' },
   { path: '/usuarios', label: 'Usuarios', icon: '🔐', permission: 'usuarios.read' },
   { path: '/auditoria', label: 'Auditoría', icon: '🛡️', permission: 'auditoria.read' },
   { path: '/configuracion', label: 'Configuración', icon: '⚙️', permission: 'configuracion.read' },

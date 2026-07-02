@@ -10,7 +10,8 @@ export function SuppliersPage() {
       title="Proveedores"
       description="Datos comerciales, contacto y saldo del proveedor."
       createLabel="Nuevo proveedor"
-      searchFields={['name', 'cuit', 'phone', 'email', 'address']}
+      searchFields={['name', 'cuit', 'phone', 'email', 'address', 'notes']}
+      searchPlaceholder="Buscar proveedor por nombre, CUIT, teléfono, email, dirección o notas..."
       initialValues={{ name: '', cuit: '', phone: '', email: '', address: '', balance: 0, notes: '' }}
       fields={[
         { name: 'name', label: 'Razón social / nombre', required: true },

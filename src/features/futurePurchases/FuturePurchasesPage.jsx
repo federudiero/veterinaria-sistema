@@ -49,7 +49,8 @@ export function FuturePurchasesPage() {
       title="Compras futuras"
       description="Encargos de clientes para productos que todavía no están en stock. Esta sección no descuenta stock ni genera movimiento de inventario. Sirve para dejar asentado qué hay que conseguir y para qué día tiene que estar listo."
       createLabel="Nuevo encargo"
-      searchFields={['date', 'neededDate', 'clientName', 'clientPhone', 'productName', 'status', 'supplierName', 'notes']}
+      searchFields={['date', 'neededDate', 'clientName', 'clientPhone', 'patientName', 'productName', 'status', 'supplierName', 'priority', 'notes']}
+      searchPlaceholder="Buscar encargo por cliente, teléfono, paciente, producto, proveedor, prioridad o estado..."
       exportColumns={exportColumns}
       exportSubtitle="Compras futuras y encargos pendientes. No afectan stock hasta que se registre una compra real o una venta real."
       exportFileLabel="compras-futuras"

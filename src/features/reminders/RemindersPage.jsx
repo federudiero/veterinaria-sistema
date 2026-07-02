@@ -2,12 +2,14 @@ import React, { useId, useMemo, useState } from 'react'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
 import { Modal } from '../../components/ui/Modal.jsx'
+import { Pagination } from '../../components/ui/Pagination.jsx'
 import { FormGrid } from '../../components/forms/FormGrid.jsx'
 import { ExportButtons } from '../../components/export/ExportButtons.jsx'
 import { IndividualExportActions } from '../../components/export/IndividualExportActions.jsx'
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
 import { useLookups } from '../../hooks/useLookups.js'
+import { useDataControls } from '../../hooks/useDataControls.js'
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
@@ -210,6 +212,8 @@ export function RemindersPage() {
       loadedSales: allRows.filter((item) => item.saleGenerated || item.status === 'Venta cargada').length,
     }
   }, [remindersByDate, selectedDate])
+
+  const dailyPage = useDataControls(selectedRows)
 
   const columns = [
     { key: 'time', label: 'Hora', render: (row) => row.time || '-' },
@@ -591,11 +595,12 @@ export function RemindersPage() {
       {reminders.loading ? (
         <div className="panel">Cargando recordatorios...</div>
       ) : (
-        <DataTable
-          rows={selectedRows}
-          columns={columns}
-          empty={`No hay recordatorios para el ${dateLabel(selectedDate)}.`}
-          actions={(row) => (
+        <>
+          <DataTable
+            rows={dailyPage.rows}
+            columns={columns}
+            empty={`No hay recordatorios para el ${dateLabel(selectedDate)}.`}
+            actions={(row) => (
             <>
               <IndividualExportActions
                 row={row}
@@ -614,8 +619,18 @@ export function RemindersPage() {
               {canWrite && <button className="btn btn-small" onClick={() => openEdit(row)}>Editar</button>}
               {canWrite && <button className="btn btn-small btn-danger" onClick={() => deleteReminder(row)}>Eliminar</button>}
             </>
-          )}
-        />
+            )}
+          />
+          <Pagination
+            page={dailyPage.page}
+            pageCount={dailyPage.pageCount}
+            pageSize={dailyPage.pageSize}
+            onPageChange={dailyPage.setPage}
+            onPageSizeChange={dailyPage.setPageSize}
+            total={dailyPage.total}
+            rawTotal={selectedRows.length}
+          />
+        </>
       )}
 
       {modalOpen && (

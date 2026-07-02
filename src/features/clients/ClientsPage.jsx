@@ -9,7 +9,8 @@ export function ClientsPage() {
       title="Clientes"
       description="Dueños, datos de contacto, dirección, segmento y observaciones comerciales."
       createLabel="Nuevo cliente"
-      searchFields={['name', 'phone', 'email', 'dni', 'address']}
+      searchFields={['name', 'phone', 'email', 'dni', 'address', 'city', 'segment', 'notes']}
+      searchPlaceholder="Buscar cliente por nombre, DNI/CUIT, teléfono, email, ciudad o segmento..."
       initialValues={{ name: '', dni: '', phone: '', email: '', address: '', city: '', segment: 'Nuevo', notes: '' }}
       fields={[
         { name: 'name', label: 'Nombre completo', required: true },

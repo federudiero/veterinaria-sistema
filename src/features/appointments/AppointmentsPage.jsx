@@ -2,12 +2,14 @@ import React, { useId, useMemo, useState } from 'react'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
 import { Modal } from '../../components/ui/Modal.jsx'
+import { Pagination } from '../../components/ui/Pagination.jsx'
 import { FormGrid } from '../../components/forms/FormGrid.jsx'
 import { ExportButtons } from '../../components/export/ExportButtons.jsx'
 import { IndividualExportActions } from '../../components/export/IndividualExportActions.jsx'
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
 import { useLookups } from '../../hooks/useLookups.js'
+import { useDataControls } from '../../hooks/useDataControls.js'
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { buildSearchPayload, normalizeSearchText } from '../../utils/search.js'
@@ -131,6 +133,8 @@ export function AppointmentsPage() {
       done: allRows.filter((item) => item.status === 'Atendido').length,
     }
   }, [appointmentsByDate, selectedDate])
+
+  const dailyPage = useDataControls(selectedRows)
 
   const columns = [
     { key: 'time', label: 'Hora' },
@@ -331,11 +335,12 @@ export function AppointmentsPage() {
       {appointments.loading ? (
         <div className="panel">Cargando agenda...</div>
       ) : (
-        <DataTable
-          rows={selectedRows}
-          columns={columns}
-          empty={`No hay turnos para el ${dateLabel(selectedDate)}.`}
-          actions={(row) => (
+        <>
+          <DataTable
+            rows={dailyPage.rows}
+            columns={columns}
+            empty={`No hay turnos para el ${dateLabel(selectedDate)}.`}
+            actions={(row) => (
             <>
               <IndividualExportActions
                 row={row}
@@ -347,8 +352,18 @@ export function AppointmentsPage() {
               {canWrite && <button className="btn btn-small" onClick={() => openEdit(row)}>Editar</button>}
               {canWrite && <button className="btn btn-small btn-danger" onClick={() => deleteAppointment(row)}>Eliminar</button>}
             </>
-          )}
-        />
+            )}
+          />
+          <Pagination
+            page={dailyPage.page}
+            pageCount={dailyPage.pageCount}
+            pageSize={dailyPage.pageSize}
+            onPageChange={dailyPage.setPage}
+            onPageSizeChange={dailyPage.setPageSize}
+            total={dailyPage.total}
+            rawTotal={selectedRows.length}
+          />
+        </>
       )}
 
       {modalOpen && (

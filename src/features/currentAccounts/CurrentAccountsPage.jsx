@@ -123,8 +123,12 @@ export function CurrentAccountsPage() {
     try {
       const amount = numberValue(manualForm.amount)
       const paidAmount = numberValue(manualForm.paidAmount)
+      const manualClient = clientById[manualForm.clientId]
       await accounts.create({
         ...manualForm,
+        clientName: clientMap[manualForm.clientId] || manualClient?.name || '',
+        clientPhone: manualClient?.phone || '',
+        clientEmail: manualClient?.email || '',
         amount,
         paidAmount,
         status: paidAmount >= amount ? 'Cancelado' : paidAmount > 0 ? 'Parcial' : manualForm.status,
@@ -152,6 +156,7 @@ export function CurrentAccountsPage() {
               title="Cuentas corrientes"
               subtitle="Movimientos filtrados con saldo, vencimiento, venta vinculada y datos completos del contacto."
               rows={accounts.items}
+              getRows={accounts.fetchAllForExport}
               columns={exportColumns}
               summary={[
                 { label: 'Total deuda activa', value: money(totalAmount) },
@@ -174,7 +179,7 @@ export function CurrentAccountsPage() {
       <ListToolbar
         query={accounts.query}
         onQueryChange={accounts.setQuery}
-        placeholder="Buscar por cliente, concepto, estado o fecha..."
+        placeholder="Buscar por cliente, teléfono, concepto, estado, venta vinculada o fecha..."
         dateFrom={accounts.dateFrom}
         dateTo={accounts.dateTo}
         onDateFromChange={accounts.setDateFrom}

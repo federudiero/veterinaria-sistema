@@ -10,7 +10,8 @@ export function ProductsPage() {
       title="Productos y stock"
       description="Productos, servicios, costos, precios y stock operativo. El stock se modifica por ventas, compras y anulaciones para mantener trazabilidad."
       createLabel="Nuevo producto"
-      searchFields={['name', 'sku', 'category', 'type']}
+      searchFields={['name', 'sku', 'category', 'type', 'unit']}
+      searchPlaceholder="Buscar producto o servicio por nombre, SKU, categoría, tipo o unidad..."
       initialValues={{ sku: '', name: '', category: '', type: 'Producto', cost: 0, price: 0, stock: 0, minStock: 0, unit: 'unidad', active: true }}
       fields={[
         { name: 'sku', label: 'SKU / código' },

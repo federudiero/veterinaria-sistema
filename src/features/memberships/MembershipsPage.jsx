@@ -3,6 +3,7 @@ import { CrudPage } from '../common/CrudPage.jsx'
 import { useLookups } from '../../hooks/useLookups.js'
 import { dateLabel, money } from '../../utils/formatters.js'
 import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
+import { withClientPatientLookupFields } from '../../utils/lookupPayload.js'
 
 export function MembershipsPage() {
   const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
@@ -25,6 +26,10 @@ export function MembershipsPage() {
     ],
   })
 
+  function normalizeLookupPayload(payload) {
+    return withClientPatientLookupFields(payload, { clientMap, patientMap, clientById, patientById })
+  }
+
   return (
     <CrudPage
       collectionName="memberships"
@@ -32,7 +37,9 @@ export function MembershipsPage() {
       title="Mutualismo / planes"
       description="Planes mensuales/anuales, próxima facturación y estado del afiliado. Exportación con datos de contacto y paciente."
       createLabel="Nuevo plan"
-      searchFields={['plan', 'status', 'notes']}
+      searchFields={['patientName', 'clientName', 'clientPhone', 'plan', 'status', 'nextBilling', 'notes']}
+      searchPlaceholder="Buscar plan por cliente, paciente, teléfono, plan, estado o próximo cobro..."
+      beforeSave={normalizeLookupPayload}
       exportColumns={exportColumns}
       initialValues={{ clientId: '', patientId: '', plan: '', monthlyFee: 0, status: 'Activo', nextBilling: '', notes: '' }}
       fields={[

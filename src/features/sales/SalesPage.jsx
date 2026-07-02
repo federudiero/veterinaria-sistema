@@ -293,13 +293,14 @@ export function SalesPage() {
           <>
             <ExportButtons
               title="Ventas"
-              subtitle="Listado filtrado visible de ventas con datos de contacto, paciente, turno, caja, deuda y estado."
+              subtitle="Listado filtrado de ventas con datos de contacto, paciente, turno, caja, deuda y estado."
               rows={sales.items}
+              getRows={sales.fetchAllForExport}
               columns={exportColumns}
               summary={[
                 { label: 'Total cobrado', value: money(totalPaid) },
                 { label: 'Pendiente', value: money(totalPending) },
-                { label: 'Ventas en pagina', value: sales.items.length },
+                { label: 'Ventas visibles en página', value: sales.items.length },
               ]}
               fileLabel="ventas"
             />

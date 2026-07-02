@@ -21,6 +21,7 @@ export function AccessDeniedPage({ permission }) {
 
 export function PermissionRoute({ permission, children }) {
   const { hasPermission } = useAuth()
+
   if (!permission || hasPermission(permission)) return children
   return <AccessDeniedPage permission={permission} />
 }

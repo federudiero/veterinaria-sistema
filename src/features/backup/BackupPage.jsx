@@ -70,8 +70,7 @@ export function BackupPage() {
       const nextResults = []
 
       for (const [collectionName, label] of BACKUP_COLLECTIONS) {
-        const response = await repository.fetchCollectionPage(collectionName, {
-          limitCount: 300,
+        const response = await repository.fetchCollectionForExport(collectionName, {
           orderByField: collectionName === 'settings' ? undefined : 'updatedAt',
           orderDirection: 'desc',
         })
@@ -82,7 +81,7 @@ export function BackupPage() {
           collectionName,
           label,
           count: rows.length,
-          note: response?.hasMore ? 'Exportó los últimos 300. Hay más registros.' : 'Completo dentro del límite actual.',
+          note: response?.truncated ? `Exportó el máximo seguro de ${response.maxRows}. Hay más registros.` : 'Completo dentro del límite seguro.',
         })
       }
 
@@ -94,8 +93,8 @@ export function BackupPage() {
           generatedAt: new Date().toISOString(),
           generatedBy: user?.email || '',
           mode: isFirebaseMode ? 'firebase' : 'local-demo',
-          limitPerCollection: 300,
-          warning: 'Backup operativo JSON. Para exportaciones históricas masivas usar backend/Cloud Functions.',
+          limitPerCollection: 'máximo seguro del navegador',
+          warning: 'Backup operativo JSON. Para historiales masivos conviene programar backup server-side.',
         },
         data,
       }
@@ -129,10 +128,10 @@ export function BackupPage() {
         <article className="panel">
           <h2>Alcance del backup</h2>
           <p className="muted">
-            El backup descarga un archivo JSON con configuración, clientes, pacientes, historia clínica, caja, stock, ventas, compras, auditoría y demás módulos. En esta fase se limita a 300 registros por colección para no disparar lecturas masivas desde el navegador.
+            El backup descarga un archivo JSON con configuración, clientes, pacientes, historia clínica, caja, stock, ventas, compras, auditoría y demás módulos. Usa el máximo seguro de exportación por colección para no disparar lecturas masivas desde el navegador.
           </p>
           <div className="backup-warning">
-            <strong>Producción comercial</strong>
+            <strong>Uso comercial</strong>
             <span>Para clientes con muchísimo historial conviene agregar luego backups automáticos desde backend. Esta pantalla sirve para soporte inmediato y migración controlada.</span>
           </div>
         </article>

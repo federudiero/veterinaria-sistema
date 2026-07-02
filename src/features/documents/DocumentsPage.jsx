@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
+import { SearchableSelect } from '../../components/forms/SearchableSelect.jsx'
 import { StatCard } from '../../components/ui/StatCard.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
 import { useClinicSettings } from '../../hooks/useClinicSettings.js'
@@ -186,13 +187,14 @@ export function DocumentsPage() {
               <p className="muted">Seleccioná el paciente y generá documentos con responsable, datos clínicos y firma profesional.</p>
             </div>
           </div>
-          <label className="field">
-            <span>Paciente</span>
-            <select value={patientId} onChange={(event) => setPatientId(event.target.value)}>
-              <option value="">Seleccionar paciente</option>
-              {patientOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
+          <SearchableSelect
+            label="Paciente"
+            value={patientId}
+            onChange={setPatientId}
+            options={patientOptions}
+            placeholder="Seleccionar paciente"
+            searchPlaceholder="Buscar paciente o responsable..."
+          />
           <div className="document-actions-grid">
             <button className="btn btn-primary" type="button" onClick={printHistory}>Historia clínica completa</button>
             <button className="btn" type="button" onClick={printVaccines}>Carnet sanitario</button>
@@ -208,61 +210,66 @@ export function DocumentsPage() {
 
         <article className="panel document-panel">
           <h2>Recetas e indicaciones</h2>
-          <label className="field">
-            <span>Receta</span>
-            <select value={prescriptionId} onChange={(event) => setPrescriptionId(event.target.value)}>
-              <option value="">Seleccionar receta</option>
-              {prescriptionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
+          <SearchableSelect
+            label="Receta"
+            value={prescriptionId}
+            onChange={setPrescriptionId}
+            options={prescriptionOptions}
+            placeholder="Seleccionar receta"
+            searchPlaceholder="Buscar receta por fecha, paciente o profesional..."
+          />
           <button className="btn btn-primary full" type="button" onClick={printPrescription}>Imprimir receta profesional</button>
         </article>
 
         <article className="panel document-panel">
           <h2>Ventas y comprobantes</h2>
-          <label className="field">
-            <span>Venta</span>
-            <select value={saleId} onChange={(event) => setSaleId(event.target.value)}>
-              <option value="">Seleccionar venta</option>
-              {saleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
+          <SearchableSelect
+            label="Venta"
+            value={saleId}
+            onChange={setSaleId}
+            options={saleOptions}
+            placeholder="Seleccionar venta"
+            searchPlaceholder="Buscar venta por fecha, cliente o importe..."
+          />
           <button className="btn btn-primary full" type="button" onClick={printSale}>Imprimir recibo</button>
         </article>
 
         <article className="panel document-panel">
           <h2>Cuentas corrientes</h2>
-          <label className="field">
-            <span>Cuenta</span>
-            <select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-              <option value="">Seleccionar cuenta corriente</option>
-              {accountOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
+          <SearchableSelect
+            label="Cuenta"
+            value={accountId}
+            onChange={setAccountId}
+            options={accountOptions}
+            placeholder="Seleccionar cuenta corriente"
+            searchPlaceholder="Buscar cuenta por fecha, cliente o saldo..."
+          />
           <button className="btn btn-primary full" type="button" onClick={printAccount}>Imprimir resumen de deuda</button>
         </article>
 
         <article className="panel document-panel">
           <h2>Cierres de caja</h2>
-          <label className="field">
-            <span>Cierre</span>
-            <select value={closureId} onChange={(event) => setClosureId(event.target.value)}>
-              <option value="">Seleccionar cierre</option>
-              {closureOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
+          <SearchableSelect
+            label="Cierre"
+            value={closureId}
+            onChange={setClosureId}
+            options={closureOptions}
+            placeholder="Seleccionar cierre"
+            searchPlaceholder="Buscar cierre por fecha o importe..."
+          />
           <button className="btn btn-primary full" type="button" onClick={printClosure}>Imprimir cierre</button>
         </article>
 
         <article className="panel document-panel">
           <h2>Constancia de atención</h2>
-          <label className="field">
-            <span>Turno / atención</span>
-            <select value={appointmentId} onChange={(event) => setAppointmentId(event.target.value)}>
-              <option value="">Seleccionar turno</option>
-              {appointmentOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
+          <SearchableSelect
+            label="Turno / atención"
+            value={appointmentId}
+            onChange={setAppointmentId}
+            options={appointmentOptions}
+            placeholder="Seleccionar turno"
+            searchPlaceholder="Buscar turno por fecha, paciente o servicio..."
+          />
           <button className="btn btn-primary full" type="button" onClick={printAppointment}>Imprimir constancia</button>
         </article>
       </div>

@@ -29,7 +29,6 @@ import { AuditPage } from './features/audit/AuditPage.jsx'
 import { SettingsPage } from './features/settings/SettingsPage.jsx'
 import { DocumentsPage } from './features/documents/DocumentsPage.jsx'
 import { BackupPage } from './features/backup/BackupPage.jsx'
-import { SystemStatusPage } from './features/systemStatus/SystemStatusPage.jsx'
 import { PermissionRoute } from './routes/PermissionRoute.jsx'
 import { ROUTE_PERMISSIONS } from './data/modulePermissions.js'
 
@@ -69,7 +68,6 @@ export default function App() {
         <Route path="reportes" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/reportes']}><ReportsPage /></PermissionRoute>} />
         <Route path="documentos" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/documentos']}><DocumentsPage /></PermissionRoute>} />
         <Route path="respaldo" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/respaldo']}><BackupPage /></PermissionRoute>} />
-        <Route path="estado-sistema" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/estado-sistema']}><SystemStatusPage /></PermissionRoute>} />
         <Route path="usuarios" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/usuarios']}><UsersPage /></PermissionRoute>} />
         <Route path="auditoria" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/auditoria']}><AuditPage /></PermissionRoute>} />
         <Route path="configuracion" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/configuracion']}><SettingsPage /></PermissionRoute>} />

@@ -3,9 +3,10 @@ import { CrudPage } from '../common/CrudPage.jsx'
 import { useLookups } from '../../hooks/useLookups.js'
 import { dateLabel, money, todayISO } from '../../utils/formatters.js'
 import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
+import { withClientPatientLookupFields } from '../../utils/lookupPayload.js'
 
 export function ClinicalRecordsPage() {
-  const { patientOptions, patientMap, clientById, patientById } = useLookups()
+  const { patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
 
   const columns = [
     { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
@@ -28,6 +29,10 @@ export function ClinicalRecordsPage() {
     ],
   })
 
+  function normalizeLookupPayload(payload) {
+    return withClientPatientLookupFields(payload, { clientMap, patientMap, clientById, patientById })
+  }
+
   return (
     <CrudPage
       collectionName="clinicalRecords"
@@ -35,7 +40,9 @@ export function ClinicalRecordsPage() {
       title="Historia clínica"
       description="Consultas, diagnósticos, tratamientos, controles y montos asociados. El PDF sale con datos completos del paciente y contacto."
       createLabel="Nueva atención"
-      searchFields={['type', 'professional', 'reason', 'diagnosis', 'treatment']}
+      searchFields={['date', 'patientName', 'clientName', 'clientPhone', 'type', 'professional', 'reason', 'diagnosis', 'treatment', 'nextControl']}
+      searchPlaceholder="Buscar atención por paciente, cliente, teléfono, tipo, profesional, diagnóstico o tratamiento..."
+      beforeSave={normalizeLookupPayload}
       exportColumns={exportColumns}
       initialValues={{ date: todayISO(), patientId: '', type: 'Consulta', professional: '', reason: '', diagnosis: '', treatment: '', nextControl: '', amount: 0, paid: false }}
       fields={[

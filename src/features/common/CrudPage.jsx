@@ -80,6 +80,7 @@ export function CrudPage({
   enableStatusFilter,
   defaultOrderByField,
   defaultOrderDirection = 'desc',
+  searchPlaceholder,
 }) {
   const modulePermissions = COLLECTION_PERMISSIONS[collectionName] || {}
   const effectiveReadPermission = readPermission ?? modulePermissions.read
@@ -227,10 +228,16 @@ export function CrudPage({
           <>
             <ExportButtons
               title={title}
-              subtitle={exportSubtitle || `${description || title}. Exporta solo la pagina/rango filtrado visible.`}
+              subtitle={exportSubtitle || `${description || title}. Exporta todos los registros filtrados hasta el máximo seguro de lectura.`}
               rows={pageRows}
+              getRows={list.fetchAllForExport}
               columns={exportColumns || columns}
-              summary={exportSummary || [{ label: 'Registros en página', value: pageRows.length }]}
+              summary={exportSummary || [
+                { label: 'Registros en esta página', value: pageRows.length },
+                ...(debouncedQuery ? [{ label: 'Búsqueda', value: debouncedQuery }] : []),
+                ...(dateFrom || dateTo ? [{ label: 'Rango', value: `${dateFrom || 'inicio'} a ${dateTo || 'hoy'}` }] : []),
+                ...(statusFilter ? [{ label: 'Estado', value: statusFilter }] : []),
+              ]}
               fileLabel={exportFileLabel || title}
             />
             {extraHeaderActions}
@@ -242,6 +249,7 @@ export function CrudPage({
       <ListToolbar
         query={query}
         onQueryChange={setQuery}
+        placeholder={searchPlaceholder}
         dateFrom={showDateFilters ? dateFrom : undefined}
         dateTo={showDateFilters ? dateTo : undefined}
         onDateFromChange={showDateFilters ? setDateFrom : undefined}

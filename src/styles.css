@@ -1640,73 +1640,6 @@ code {
   .brand-preview-card { grid-template-columns: 1fr; }
 }
 
-/* =========================================================
-   Fase 6: tablero de producción y checklist comercial
-   ========================================================= */
-.release-panel {
-  display: grid;
-  gap: 16px;
-}
-
-.release-steps {
-  display: grid;
-  gap: 12px;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-  counter-reset: deploy-step;
-}
-
-.release-steps li {
-  counter-increment: deploy-step;
-  display: grid;
-  grid-template-columns: 38px 1fr;
-  gap: 10px;
-  align-items: start;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, .72);
-}
-
-.release-steps li::before {
-  content: counter(deploy-step);
-  width: 38px;
-  height: 38px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  background: var(--primary-soft);
-  color: var(--primary);
-  font-weight: 950;
-}
-
-.release-steps strong,
-.release-steps span {
-  display: block;
-}
-
-.release-steps span {
-  color: var(--muted);
-  margin-top: 3px;
-  line-height: 1.35;
-}
-
-.command-card {
-  border: 1px solid rgba(15, 118, 110, .22);
-  border-radius: 18px;
-  padding: 14px;
-  background: #0f172a;
-  color: #d1fae5;
-  overflow: auto;
-}
-
-.command-card code {
-  white-space: pre-line;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  line-height: 1.65;
-}
-
 /* Venta rápida / modo mostrador */
 .quick-sale-page {
   padding-bottom: 18px;
@@ -2491,5 +2424,311 @@ code {
   .future-sale-form-block {
     padding: 12px;
     border-radius: 16px;
+  }
+}
+
+/* Configuración cliente: identidad, operación y orden del menú */
+.settings-form-grid {
+  align-items: start;
+}
+
+.settings-wide-panel,
+.settings-save-panel {
+  grid-column: 1 / -1;
+}
+
+.settings-save-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.nav-order-list-compact {
+  max-height: 420px;
+}
+
+@media (max-width: 720px) {
+  .settings-save-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* Ajuste mobile final: tablas legibles y acciones utilizables en teléfono */
+@media (max-width: 720px) {
+  .data-table tr {
+    display: grid;
+    gap: 6px;
+    padding: 12px 0;
+  }
+
+  .data-table td {
+    display: grid;
+    grid-template-columns: minmax(96px, .42fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 7px 0;
+  }
+
+  .data-table td::before {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .data-table .cell-content {
+    min-width: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .data-table .row-actions {
+    display: grid;
+    grid-template-columns: minmax(96px, .42fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .data-table .row-actions > :not(:first-child) {
+    margin-top: 6px;
+  }
+
+  .data-table .row-actions .btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .export-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* =========================================================
+   Cierre UX profesional: buscadores claros, tablas grandes y microinteracciones
+   ========================================================= */
+html { scroll-behavior: smooth; }
+
+.main {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,0) 18rem),
+    transparent;
+}
+
+.section-header {
+  padding: 2px 2px 0;
+}
+
+.section-header h1 {
+  text-wrap: balance;
+}
+
+.section-actions .btn,
+.export-actions .btn {
+  white-space: nowrap;
+}
+
+.list-toolbar {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(148, 163, 184, .22);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.82));
+  box-shadow: 0 16px 44px rgba(15,23,42,.06);
+}
+
+.list-toolbar::before {
+  content: 'Filtros';
+  position: absolute;
+  top: -10px;
+  left: 18px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: var(--primary-strong);
+  background: #fff;
+  border: 1px solid rgba(15, 118, 110, .16);
+  font-size: .68rem;
+  font-weight: 950;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.search-input-wide,
+.search-input {
+  min-height: 44px;
+}
+
+.toolbar-filter-group {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.toolbar-filter-group label,
+.toolbar-status-filter {
+  display: grid;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.toolbar-filter-group span,
+.toolbar-status-filter span {
+  color: var(--muted);
+  font-size: .76rem;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+
+.toolbar-filter-group input,
+.toolbar-status-filter select {
+  min-height: 44px;
+  border: 1px solid rgba(148, 163, 184, .34);
+  border-radius: 14px;
+  background: rgba(255,255,255,.92);
+  padding: 10px 12px;
+  outline: none;
+}
+
+.table-wrap {
+  border-radius: 24px;
+  background: rgba(255,255,255,.88);
+}
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  backdrop-filter: blur(12px);
+}
+
+.data-table .cell-content {
+  display: inline-block;
+  max-width: min(420px, 44vw);
+  overflow-wrap: anywhere;
+}
+
+.row-actions {
+  min-width: 170px;
+}
+
+.pagination-bar {
+  margin-top: 14px;
+  border: 1px solid rgba(148, 163, 184, .22);
+  border-radius: 20px;
+  background: rgba(255,255,255,.78);
+  box-shadow: 0 14px 34px rgba(15,23,42,.055);
+}
+
+.searchable-select-field .select-filter {
+  margin-bottom: 2px;
+}
+
+.panel:hover,
+.table-wrap:hover,
+.stat-card:hover {
+  border-color: rgba(15, 118, 110, .22);
+}
+
+.nav-list a span:last-child,
+.brand strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1080px) {
+  .list-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar-filter-group,
+  .toolbar-status-filter,
+  .toolbar-filter-group label {
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .main {
+    padding: 16px 12px 22px;
+  }
+
+  .section-header {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .section-header h1 {
+    font-size: clamp(1.55rem, 9vw, 2.1rem);
+  }
+
+  .section-header p {
+    font-size: .92rem;
+  }
+
+  .list-toolbar {
+    padding: 14px 12px 12px;
+    border-radius: 20px;
+  }
+
+  .toolbar-filter-group {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .data-table {
+    min-width: 0;
+  }
+
+  .data-table tbody tr {
+    margin: 0 0 12px;
+    padding: 12px;
+    border: 1px solid rgba(148, 163, 184, .20);
+    border-radius: 18px;
+    background: rgba(255,255,255,.86);
+    box-shadow: 0 12px 28px rgba(15,23,42,.055);
+  }
+
+  .data-table .cell-content {
+    max-width: 100%;
+  }
+
+  .pagination-bar {
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .pagination-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .pagination-actions .page-size,
+  .pagination-actions .page-current {
+    grid-column: 1 / -1;
+    justify-content: center;
   }
 }
