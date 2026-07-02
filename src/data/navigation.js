@@ -8,7 +8,7 @@ export const navigation = [
   { path: '/agenda', label: 'Agenda', icon: '📅', permission: 'agenda.read' },
   { path: '/recordatorios', label: 'Recordatorios', icon: '🔔', permission: 'agenda.read' },
   { path: '/cola-espera', label: 'Cola de espera', icon: '⏱️', permission: 'agenda.read' },
-  { path: '/turnos-veterinarios', label: 'Turnos veterinarios', icon: 'TV', permission: 'agenda.read' },
+  { path: '/turnos-caja', label: 'Turnos de caja', icon: '🧾', permission: 'caja.read' },
   { path: '/venta-rapida', label: 'Venta rápida', icon: '⚡', permission: 'ventas.read' },
   { path: '/ventas', label: 'Ventas', icon: '🧾', permission: 'ventas.read' },
   { path: '/cuentas-corrientes', label: 'Cuentas corrientes', icon: '💳', permission: 'caja.read' },

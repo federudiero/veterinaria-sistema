@@ -50,6 +50,11 @@ function assertOpenShift(state, input = {}) {
   return shift
 }
 
+function assertRequiredOpenShift(state, input = {}) {
+  if (!input.shiftId) throw new Error('Seleccioná un turno de caja abierto antes de operar.')
+  return assertOpenShift(state, input)
+}
+
 function getInitialState() {
   const now = nowISO()
   return Object.fromEntries(
@@ -310,7 +315,7 @@ export async function seedDemoData({ overwrite = true } = {}) {
 export async function createSaleTransaction(input) {
   const state = readState()
   const now = nowISO()
-  const shift = input.shiftId ? assertOpenShift(state, input) : null
+  const shift = assertRequiredOpenShift(state, input)
   const product = (state.products || []).find((item) => item.id === input.productId)
   if (!product) throw new Error('El producto seleccionado ya no existe.')
   if (product.active === false) throw new Error('El producto seleccionado está inactivo.')
@@ -440,7 +445,7 @@ export async function createSaleTransaction(input) {
 export async function createReminderSaleTransaction(input) {
   const state = readState()
   const now = nowISO()
-  const shift = input.shiftId ? assertOpenShift(state, input) : null
+  const shift = assertRequiredOpenShift(state, input)
   const product = input.productId ? (state.products || []).find((item) => item.id === input.productId) : null
   if (input.productId && !product) throw new Error('El producto seleccionado ya no existe.')
   if (product?.active === false) throw new Error('El producto seleccionado está inactivo.')
@@ -601,7 +606,7 @@ export async function createReminderSaleTransaction(input) {
 export async function collectSaleTransaction(sale, input = {}) {
   const state = readState()
   const now = nowISO()
-  if (input.shiftId) assertOpenShift(state, input)
+  const shift = assertRequiredOpenShift(state, input)
   const currentSale = (state.sales || []).find((item) => item.id === sale.id)
   if (!currentSale) throw new Error('La venta ya no existe.')
   if (currentSale.status === 'Anulada') throw new Error('No se puede cobrar una venta anulada.')
@@ -624,7 +629,7 @@ export async function collectSaleTransaction(sale, input = {}) {
     relatedSaleId: sale.id,
     clientId: currentSale.clientId || '',
     patientId: currentSale.patientId || '',
-    ...shiftPayload({ ...currentSale, ...input }),
+    ...shiftPayload({ ...currentSale, ...input, ...(shift || {}) }),
     createdAt: now,
     updatedAt: now,
     ...actorPayload(),
@@ -690,7 +695,7 @@ export async function voidSaleTransaction(sale, input = {}) {
 export async function createPurchaseTransaction(input) {
   const state = readState()
   const now = nowISO()
-  const shift = input.shiftId ? assertOpenShift(state, input) : null
+  const shift = input.paid ? assertRequiredOpenShift(state, input) : (input.shiftId ? assertOpenShift(state, input) : null)
   const product = (state.products || []).find((item) => item.id === input.productId)
   if (!product) throw new Error('El producto seleccionado ya no existe.')
   if (product.type !== 'Producto') throw new Error('Solo se puede reponer stock de productos físicos.')
@@ -810,7 +815,7 @@ export async function voidPurchaseTransaction(purchase, input = {}) {
 export async function collectCurrentAccountTransaction(account, input = {}) {
   const state = readState()
   const now = nowISO()
-  if (input.shiftId) assertOpenShift(state, input)
+  const shift = assertRequiredOpenShift(state, input)
   const currentAccount = (state.currentAccounts || []).find((item) => item.id === account.id)
   if (!currentAccount) throw new Error('El movimiento de cuenta corriente ya no existe.')
   if (currentAccount.status === 'Anulado') throw new Error('No se puede cobrar un movimiento anulado.')
@@ -837,7 +842,7 @@ export async function collectCurrentAccountTransaction(account, input = {}) {
     relatedSaleId: currentAccount.relatedSaleId || '',
     clientId: currentAccount.clientId || '',
     patientId: currentAccount.patientId || '',
-    ...shiftPayload({ ...currentAccount, ...input }),
+    ...shiftPayload({ ...currentAccount, ...input, ...(shift || {}) }),
     createdAt: now,
     updatedAt: now,
     ...actorPayload(),
@@ -854,7 +859,7 @@ export async function collectCurrentAccountTransaction(account, input = {}) {
 export async function createCashMovementTransaction(input) {
   const state = readState()
   const now = nowISO()
-  const shift = input.shiftId ? assertOpenShift(state, input) : null
+  const shift = assertRequiredOpenShift(state, input)
   const amount = numberValue(input.amount)
   if (amount <= 0) throw new Error('El importe debe ser mayor a cero.')
   const id = idFor('cashMovements')
@@ -882,9 +887,10 @@ export async function createCashMovementTransaction(input) {
 export async function closeCashTransaction(input = {}) {
   const state = readState()
   const now = nowISO()
+  if (!input.shiftId) throw new Error('Seleccioná un turno de caja para cerrar.')
   const date = input.date || todayISO()
-  const shift = input.shiftId ? assertOpenShift(state, input) : null
-  const id = input.shiftId ? `closure_${date}_${input.shiftId}` : `closure_${date}`
+  const shift = assertRequiredOpenShift(state, input)
+  const id = `closure_${date}_${input.shiftId}`
   if ((state.cashClosures || []).some((item) => item.id === id)) throw new Error(`Ya existe un cierre de caja para ${date}.`)
   const openMovements = (state.cashMovements || []).filter((item) => {
     if (item.closed === true || item.status === 'Anulado') return false
@@ -908,18 +914,18 @@ export async function closeCashTransaction(input = {}) {
     movementIds: openMovements.map((item) => item.id),
     movementCount: openMovements.length,
     status: 'Cerrado',
-    closureType: input.shiftId ? 'shift' : 'legacy',
+    closureType: 'shift',
     ...shiftPayload({ ...input, ...(shift || {}) }),
     createdAt: now,
     updatedAt: now,
     ...actorPayload(),
   })
   state.cashClosures = [closure, ...(state.cashClosures || [])]
-  state.cashMovements = state.cashMovements.map((item) => openMovements.some((open) => open.id === item.id) ? indexDocument({ ...item, closed: true, closureId: id, shiftClosureId: input.shiftId ? id : '', closedAt: now, updatedAt: now }) : item)
+  state.cashMovements = state.cashMovements.map((item) => openMovements.some((open) => open.id === item.id) ? indexDocument({ ...item, closed: true, closureId: id, shiftClosureId: id, closedAt: now, updatedAt: now }) : item)
   if (input.shiftId) {
     state.shifts = (state.shifts || []).map((item) => item.id === input.shiftId ? indexDocument({ ...item, status: 'Cerrado', closedAt: now, closedBy: actorPayload().userUid, shiftClosureId: id, updatedAt: now }) : item)
   }
-  addAudit(state, { module: 'cashClosures', action: input.shiftId ? 'cash.shift.close.transaction' : 'cash.close.transaction', entityId: id, summary: `Cierre de caja ${date}: neto ${income - expenses}`, after: closure, severity: 'warning' })
+  addAudit(state, { module: 'cashClosures', action: 'cash.shift.close.transaction', entityId: id, summary: `Cierre de caja ${date}: neto ${income - expenses}`, after: closure, severity: 'warning' })
   writeState(state)
   emitMany(['cashClosures', 'cashMovements', 'shifts', 'auditLogs'])
   return id
@@ -933,7 +939,9 @@ export async function closeGlobalCashTransaction(input = {}) {
   if ((state.globalCashClosures || []).some((item) => item.id === id)) throw new Error(`Ya existe un cierre global para ${date}.`)
   const shifts = (state.shifts || []).filter((item) => item.date === date)
   const openShifts = shifts.filter((item) => item.status !== 'Cerrado')
-  if (openShifts.length) throw new Error('No se puede cerrar el dia: hay turnos abiertos.')
+  if (openShifts.length) throw new Error('No se puede cerrar el día: hay turnos de caja abiertos.')
+  const openMovements = (state.cashMovements || []).filter((item) => item.date === date && item.closed !== true && item.status !== 'Anulado')
+  if (openMovements.length) throw new Error('No se puede cerrar el día: quedan movimientos de caja abiertos o sin cierre de turno.')
   const closures = (state.cashClosures || []).filter((item) => item.date === date)
   if (!closures.length) throw new Error('No hay cierres de turno para consolidar.')
   const income = closures.reduce((acc, item) => acc + numberValue(item.income), 0)

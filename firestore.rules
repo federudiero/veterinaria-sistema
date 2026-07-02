@@ -143,7 +143,7 @@ service cloud.firestore {
       }
 
       match /shifts/{docId} {
-        allow read: if hasPermission(tenantId, 'agenda.read') || hasPermission(tenantId, 'ventas.read') || hasPermission(tenantId, 'caja.read');
+        allow read: if hasPermission(tenantId, 'agenda.read') || hasPermission(tenantId, 'ventas.read') || hasPermission(tenantId, 'caja.read') || hasPermission(tenantId, 'compras.read');
         allow write: if hasPermission(tenantId, 'agenda.write') || hasPermission(tenantId, 'caja.close');
       }
 

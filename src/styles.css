@@ -3028,3 +3028,5 @@ html { scroll-behavior: smooth; }
     gap: 4px;
   }
 }
+
+.panel-spaced { margin-top: 18px; }

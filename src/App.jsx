@@ -54,7 +54,8 @@ export default function App() {
         <Route path="agenda" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/agenda']}><AppointmentsPage /></PermissionRoute>} />
         <Route path="recordatorios" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/recordatorios']}><RemindersPage /></PermissionRoute>} />
         <Route path="cola-espera" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/cola-espera']}><WaitingQueuePage /></PermissionRoute>} />
-        <Route path="turnos-veterinarios" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/turnos-veterinarios']}><ShiftsPage /></PermissionRoute>} />
+        <Route path="turnos-caja" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/turnos-caja']}><ShiftsPage /></PermissionRoute>} />
+        <Route path="turnos-veterinarios" element={<Navigate to="/turnos-caja" replace />} />
         <Route path="venta-rapida" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/venta-rapida']}><QuickSalePage /></PermissionRoute>} />
         <Route path="ventas" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/ventas']}><SalesPage /></PermissionRoute>} />
         <Route path="cuentas-corrientes" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/cuentas-corrientes']}><CurrentAccountsPage /></PermissionRoute>} />

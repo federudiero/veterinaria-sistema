@@ -14,22 +14,35 @@ export function DashboardPage() {
   const patientsCount = useCollectionCount('patients')
   const appointmentsCount = useCollectionCount('appointments', { where: [{ field: 'date', op: '==', value: today }] })
   const salesCount = useCollectionCount('sales', { where: [{ field: 'date', op: '==', value: today }] })
+
   const appointments = useCollection('appointments', {
     where: [{ field: 'date', op: '==', value: today }],
     limitCount: 50,
     orderByField: 'time',
     orderDirection: 'asc',
   })
+  const shifts = useCollection('shifts', {
+    where: [{ field: 'date', op: '==', value: today }],
+    limitCount: 50,
+    orderByField: 'date',
+    orderDirection: 'desc',
+  })
   const sales = useCollection('sales', {
     where: [{ field: 'date', op: '==', value: today }],
-    limitCount: 100,
+    limitCount: 150,
     orderByField: 'date',
     orderDirection: 'desc',
   })
   const products = useCollection('products', { limitCount: 300, orderByField: 'name', orderDirection: 'asc' })
   const cash = useCollection('cashMovements', {
     where: [{ field: 'date', op: '==', value: today }],
-    limitCount: 150,
+    limitCount: 250,
+    orderByField: 'date',
+    orderDirection: 'desc',
+  })
+  const cashClosures = useCollection('cashClosures', {
+    where: [{ field: 'date', op: '==', value: today }],
+    limitCount: 60,
     orderByField: 'date',
     orderDirection: 'desc',
   })
@@ -42,8 +55,30 @@ export function DashboardPage() {
   const lowStock = products.items.filter((item) => item.type === 'Producto' && Number(item.stock) <= Number(item.minStock))
   const openBoarding = boarding.items.filter((item) => item.status !== 'Alta')
   const activeCash = cash.items.filter((item) => item.status !== 'Anulado')
+  const openCashMovements = activeCash.filter((item) => item.closed !== true)
+  const cashWithoutShift = openCashMovements.filter((item) => !item.shiftId)
   const income = sumBy(activeCash.filter((item) => item.type === 'Ingreso'), (item) => item.amount)
   const expenses = sumBy(activeCash.filter((item) => item.type === 'Egreso'), (item) => item.amount)
+
+  const shiftRows = [...shifts.items].sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || ''))).map((shift) => {
+    const shiftCash = activeCash.filter((item) => item.shiftId === shift.id)
+    const shiftSales = activeSales.filter((item) => item.shiftId === shift.id)
+    const shiftIncome = sumBy(shiftCash.filter((item) => item.type === 'Ingreso'), (item) => item.amount)
+    const shiftExpenses = sumBy(shiftCash.filter((item) => item.type === 'Egreso'), (item) => item.amount)
+    const closure = cashClosures.items.find((item) => item.shiftId === shift.id)
+    return {
+      ...shift,
+      responsible: shift.veterinarianNames?.join(', ') || 'Sin responsable',
+      schedule: `${shift.startTime || '-'} - ${shift.endTime || '-'}`,
+      salesCount: shiftSales.length,
+      salesTotal: sumBy(shiftSales, (item) => item.total),
+      cashNet: shiftIncome - shiftExpenses,
+      movementCount: shiftCash.length,
+      closureStatus: closure ? 'Cerrado con caja' : shift.status || 'Abierto',
+    }
+  })
+  const openShiftCount = shiftRows.filter((item) => item.status !== 'Cerrado').length
+  const closedShiftCount = shiftRows.filter((item) => item.status === 'Cerrado').length
 
   const appointmentColumns = [
     { key: 'time', label: 'Hora' },
@@ -51,6 +86,16 @@ export function DashboardPage() {
     { key: 'patientId', label: 'Paciente', render: (row) => patientMap[row.patientId] || '-' },
     { key: 'service', label: 'Servicio' },
     { key: 'status', label: 'Estado' },
+  ]
+
+  const shiftColumns = [
+    { key: 'name', label: 'Turno' },
+    { key: 'schedule', label: 'Horario' },
+    { key: 'responsible', label: 'Responsable' },
+    { key: 'salesTotal', label: 'Ventas', render: (row) => `${money(row.salesTotal)} (${row.salesCount})` },
+    { key: 'cashNet', label: 'Caja neta', render: (row) => money(row.cashNet) },
+    { key: 'movementCount', label: 'Movimientos' },
+    { key: 'closureStatus', label: 'Estado' },
   ]
 
   const stockColumns = [
@@ -63,12 +108,12 @@ export function DashboardPage() {
   const summary = [
     { label: 'Clientes', value: clientsCount.count },
     { label: 'Pacientes', value: patientsCount.count },
-    { label: 'Turnos hoy', value: appointmentsCount.count },
+    { label: 'Agenda clínica hoy', value: appointmentsCount.count },
     { label: 'Ventas hoy', value: money(sumBy(activeSales, (item) => item.total)) },
-    { label: 'Pendiente de cobro', value: money(sumBy(pendingPayments, (item) => item.total)) },
+    { label: 'Turnos caja abiertos', value: openShiftCount },
     { label: 'Caja neta hoy', value: money(income - expenses) },
-    { label: 'Stock crítico', value: lowStock.length },
-    { label: 'Internados', value: openBoarding.length },
+    { label: 'Movimientos abiertos', value: openCashMovements.length },
+    { label: 'Pendiente de cobro', value: money(sumBy(pendingPayments, (item) => item.total)) },
   ]
 
   return (
@@ -76,18 +121,20 @@ export function DashboardPage() {
       <SectionHeader
         eyebrow="Panel principal"
         title="Dashboard operativo"
-        description="Resumen rápido con consultas limitadas y conteos del servidor para no cargar colecciones completas."
+        description="Resumen comercial del día: agenda clínica, ventas, turnos de caja, movimientos abiertos, stock crítico y cierres."
         actions={
           <ExportButtons
             title="Dashboard operativo"
             subtitle={`Resumen general del día ${dateLabel(today)}.`}
             rows={[
-              { id: 'clients', metric: 'Clientes', value: clientsCount.count, detail: 'Conteo de Firestore' },
-              { id: 'patients', metric: 'Pacientes', value: patientsCount.count, detail: 'Conteo de Firestore' },
-              { id: 'appointments', metric: 'Turnos de hoy', value: appointmentsCount.count, detail: dateLabel(today) },
-              { id: 'sales', metric: 'Ventas de hoy', value: money(sumBy(activeSales, (item) => item.total)), detail: `${salesCount.count} comprobantes` },
+              { id: 'clients', metric: 'Clientes', value: clientsCount.count, detail: 'Conteo de servidor' },
+              { id: 'patients', metric: 'Pacientes', value: patientsCount.count, detail: 'Conteo de servidor' },
+              { id: 'appointments', metric: 'Agenda clínica hoy', value: appointmentsCount.count, detail: dateLabel(today) },
+              { id: 'cash_shifts', metric: 'Turnos de caja abiertos', value: openShiftCount, detail: `${closedShiftCount} cerrados` },
+              { id: 'sales', metric: 'Ventas hoy', value: money(sumBy(activeSales, (item) => item.total)), detail: `${salesCount.count} comprobantes` },
               { id: 'pending', metric: 'Pendiente de cobro', value: money(sumBy(pendingPayments, (item) => item.total)), detail: `${pendingPayments.length} ventas leídas` },
               { id: 'cash', metric: 'Caja neta hoy', value: money(income - expenses), detail: `Ingresos ${money(income)} · Egresos ${money(expenses)}` },
+              { id: 'open_cash', metric: 'Movimientos abiertos', value: openCashMovements.length, detail: cashWithoutShift.length ? `${cashWithoutShift.length} sin turno` : 'Todos con turno' },
               { id: 'stock', metric: 'Stock crítico', value: lowStock.length, detail: 'Productos bajo mínimo en lectura limitada' },
               { id: 'boarding', metric: 'Internados', value: openBoarding.length, detail: 'Activos / guardería' },
             ]}
@@ -105,10 +152,12 @@ export function DashboardPage() {
       <div className="stats-grid">
         <StatCard label="Clientes" value={clientsCount.count} help="Conteo del servidor" />
         <StatCard label="Pacientes" value={patientsCount.count} help="Conteo del servidor" />
-        <StatCard label="Turnos hoy" value={appointmentsCount.count} help={dateLabel(today)} tone="info" />
+        <StatCard label="Agenda clínica hoy" value={appointmentsCount.count} help={dateLabel(today)} tone="info" />
+        <StatCard label="Turnos caja abiertos" value={openShiftCount} help={`${closedShiftCount} cerrados`} tone={openShiftCount ? 'warning' : 'success'} />
         <StatCard label="Ventas hoy" value={money(sumBy(activeSales, (item) => item.total))} help={`${salesCount.count} comprobantes`} tone="success" />
         <StatCard label="Pendiente de cobro" value={money(sumBy(pendingPayments, (item) => item.total))} help={`${pendingPayments.length} ventas leídas`} tone="warning" />
         <StatCard label="Caja neta hoy" value={money(income - expenses)} help="Ingresos menos egresos" tone="success" />
+        <StatCard label="Movimientos abiertos" value={openCashMovements.length} help={cashWithoutShift.length ? `${cashWithoutShift.length} sin turno` : 'Listos para cierre por turno'} tone={openCashMovements.length ? 'warning' : 'success'} />
         <StatCard label="Stock crítico" value={lowStock.length} help="Lectura limitada" tone="danger" />
         <StatCard label="Internados" value={openBoarding.length} help="Activos / guardería" tone="info" />
       </div>
@@ -116,20 +165,28 @@ export function DashboardPage() {
       <div className="two-column">
         <article className="panel">
           <div className="panel-title-row">
-            <h2>Turnos de hoy</h2>
-            <ExportButtons title="Turnos de hoy" rows={todaysAppointments} columns={appointmentColumns} summary={summary} fileLabel="turnos-hoy" />
+            <h2>Turnos de caja de hoy</h2>
+            <ExportButtons title="Turnos de caja de hoy" rows={shiftRows} columns={shiftColumns} summary={summary} fileLabel="turnos-caja-hoy" />
           </div>
-          <DataTable rows={todaysAppointments} columns={appointmentColumns} />
+          <DataTable rows={shiftRows} columns={shiftColumns} empty="No hay turnos de caja cargados para hoy." />
         </article>
 
         <article className="panel">
           <div className="panel-title-row">
-            <h2>Alertas de stock</h2>
-            <ExportButtons title="Alertas de stock" rows={lowStock} columns={stockColumns} summary={summary} fileLabel="alertas-stock" />
+            <h2>Agenda clínica de hoy</h2>
+            <ExportButtons title="Agenda clínica de hoy" rows={todaysAppointments} columns={appointmentColumns} summary={summary} fileLabel="agenda-clinica-hoy" />
           </div>
-          <DataTable rows={lowStock} columns={stockColumns} />
+          <DataTable rows={todaysAppointments} columns={appointmentColumns} />
         </article>
       </div>
+
+      <article className="panel panel-spaced">
+        <div className="panel-title-row">
+          <h2>Alertas de stock</h2>
+          <ExportButtons title="Alertas de stock" rows={lowStock} columns={stockColumns} summary={summary} fileLabel="alertas-stock" />
+        </div>
+        <DataTable rows={lowStock} columns={stockColumns} />
+      </article>
     </section>
   )
 }

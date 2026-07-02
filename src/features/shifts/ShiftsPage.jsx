@@ -11,21 +11,26 @@ function namesFromIds(ids, users) {
 }
 
 export function ShiftsPage() {
-  const users = useCollection('users', { limitCount: 120, orderByField: 'displayName', orderDirection: 'asc' })
+  const users = useCollection('users', { limitCount: 160, orderByField: 'displayName', orderDirection: 'asc' })
   const userOptions = users.items
-    .filter((user) => user.active !== false && ['admin', 'veterinario'].includes(user.role))
+    .filter((user) => user.active !== false && ['admin', 'veterinario', 'recepcion', 'caja'].includes(user.role))
     .map((user) => ({
       value: user.uid || user.id,
       label: `${user.displayName || user.email} (${user.role})`,
-      group: 'Veterinarios',
+      group: 'Usuarios de operación',
     }))
 
   function beforeSave(payload) {
-    const veterinarianIds = Array.isArray(payload.veterinarianIds) ? payload.veterinarianIds.slice(0, 2) : []
+    const responsibleIds = Array.isArray(payload.veterinarianIds) ? payload.veterinarianIds.slice(0, 3) : []
+    const responsibleNames = namesFromIds(responsibleIds, users.items)
     return {
       ...payload,
-      veterinarianIds,
-      veterinarianNames: namesFromIds(veterinarianIds, users.items),
+      veterinarianIds: responsibleIds,
+      veterinarianNames: responsibleNames,
+      cashierIds: responsibleIds,
+      cashierNames: responsibleNames,
+      responsibleUserIds: responsibleIds,
+      responsibleUserNames: responsibleNames,
       status: payload.status || 'Abierto',
       date: payload.date || todayISO(),
     }
@@ -34,19 +39,19 @@ export function ShiftsPage() {
   return (
     <CrudPage
       collectionName="shifts"
-      eyebrow="Agenda"
-      title="Turnos veterinarios"
-      description="Turnos operativos para ventas y caja. Cada turno puede tener hasta dos veterinarios asignados."
-      createLabel="Nuevo turno"
-      searchFields={['name', 'status', 'notes']}
+      eyebrow="Caja"
+      title="Turnos de caja"
+      description="Turnos operativos para ventas, movimientos y cierre de caja. Asigná los usuarios que pueden vender o cerrar dentro de cada turno."
+      createLabel="Nuevo turno de caja"
+      searchFields={['name', 'status', 'notes', 'veterinarianNames', 'responsibleUserNames']}
       beforeSave={beforeSave}
       defaultOrderByField="date"
       defaultOrderDirection="desc"
       initialValues={{
         date: todayISO(),
         name: 'Mañana',
-        startTime: '09:00',
-        endTime: '13:00',
+        startTime: '08:00',
+        endTime: '14:00',
         veterinarianIds: [],
         veterinarianNames: [],
         status: 'Abierto',
@@ -54,34 +59,36 @@ export function ShiftsPage() {
       }}
       fields={[
         { name: 'date', label: 'Fecha', type: 'date', required: true },
-        { name: 'name', label: 'Turno', type: 'select', options: ['Mañana', 'Tarde', 'Noche', 'Guardia'], required: true },
-        { name: 'startTime', label: 'Hora inicio', type: 'time', required: true },
-        { name: 'endTime', label: 'Hora fin', type: 'time', required: true },
+        { name: 'name', label: 'Nombre del turno', type: 'select', options: ['Mañana', 'Tarde', 'Noche', 'Guardia', 'Personalizado'] },
+        { name: 'startTime', label: 'Inicio', type: 'time', required: true },
+        { name: 'endTime', label: 'Fin', type: 'time', required: true },
         {
           name: 'veterinarianIds',
-          label: 'Veterinarios asignados',
+          label: 'Usuarios responsables',
           type: 'permissionsChecklist',
           options: userOptions,
-          hint: 'Seleccioná hasta 2 usuarios veterinarios o administradores.',
+          hint: 'Estos usuarios pueden registrar ventas y movimientos en este turno. El administrador puede operar cualquier turno abierto.',
         },
-        { name: 'status', label: 'Estado', type: 'select', options: ['Abierto', 'Cerrado'], required: true },
+        { name: 'status', label: 'Estado', type: 'select', options: ['Abierto', 'Cerrado'] },
         { name: 'notes', label: 'Observaciones', type: 'textarea' },
       ]}
       columns={[
         { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
         { key: 'name', label: 'Turno' },
-        { key: 'startTime', label: 'Inicio' },
-        { key: 'endTime', label: 'Fin' },
-        { key: 'veterinarianNames', label: 'Veterinarios', render: (row) => row.veterinarianNames?.join(', ') || 'Sin asignar' },
+        { key: 'schedule', label: 'Horario', render: (row) => `${row.startTime || '-'} - ${row.endTime || '-'}` },
+        { key: 'veterinarianNames', label: 'Responsables', render: (row) => row.veterinarianNames?.join(', ') || 'Sin asignar' },
         { key: 'status', label: 'Estado' },
+        { key: 'shiftClosureId', label: 'Cierre', render: (row) => row.shiftClosureId ? 'Cerrado con caja' : '-' },
       ]}
       exportColumns={[
         { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
         { key: 'name', label: 'Turno' },
         { key: 'startTime', label: 'Inicio' },
         { key: 'endTime', label: 'Fin' },
-        { key: 'veterinarianNames', label: 'Veterinarios', exportValue: (row) => row.veterinarianNames?.join(', ') || 'Sin asignar' },
+        { key: 'veterinarianNames', label: 'Responsables', exportValue: (row) => row.veterinarianNames?.join(', ') || '-' },
         { key: 'status', label: 'Estado' },
+        { key: 'shiftClosureId', label: 'Cierre de caja' },
+        { key: 'closedBy', label: 'Cerrado por' },
         { key: 'notes', label: 'Observaciones' },
       ]}
     />

@@ -22,6 +22,7 @@ import {
   paymentLabelWithSurcharge,
 } from '../../utils/salesPricing.js'
 import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
+import { filterOpenShiftsForUser, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
 
 const KIND_OPTIONS = ['Recordatorio', 'Venta futura']
 const STATUS_OPTIONS = ['Pendiente', 'Hecho', 'Enviado', 'Respondido', 'Cancelado', 'Venta pendiente', 'Venta cargada']
@@ -143,6 +144,7 @@ function normalizeKind(value) {
 
 export function RemindersPage() {
   const reminders = useCollection('reminders', { limitCount: 500, orderByField: 'date', orderDirection: 'desc' })
+  const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
   const {
     clientOptions,
     patientOptions,
@@ -165,7 +167,7 @@ export function RemindersPage() {
   const [saving, setSaving] = useState(false)
   const formId = useId()
   const feedback = useFeedback()
-  const { hasPermission } = useAuth()
+  const { hasPermission, user } = useAuth()
   const canRead = hasPermission('agenda.read')
   const canWrite = hasPermission('agenda.write')
   const canCreateSale = hasPermission('ventas.write')
@@ -429,6 +431,11 @@ export function RemindersPage() {
     }
   }
 
+  function getOperationalShiftForSale(date) {
+    const options = filterOpenShiftsForUser(shifts.items, user, date || todayISO())
+    return options[0] || null
+  }
+
   async function generateSale(row, paid = true) {
     if (!canCreateSale) {
       feedback.warning('No tenés permiso para generar ventas desde recordatorios.')
@@ -443,11 +450,17 @@ export function RemindersPage() {
       return
     }
     const method = paid ? (row.paymentMethod || 'Efectivo') : 'Cuenta corriente'
+    const saleDate = row.date || todayISO()
+    const selectedShift = getOperationalShiftForSale(saleDate)
+    if (!selectedShift) {
+      feedback.warning('Para generar una venta desde recordatorio necesitás un turno de caja abierto y asignado para esa fecha.')
+      return
+    }
     const ok = await feedback.confirm({
       title: paid ? 'Generar venta cobrada' : 'Cargar venta pendiente',
       message: paid
-        ? 'Se creará la venta en Ventas, el ingreso en Caja y se marcará el recordatorio como venta cargada. Solo afectará stock si el recordatorio tiene activada esa opción.'
-        : 'Se creará la venta como pendiente/cuenta corriente y se marcará el recordatorio como venta pendiente. No se registrará ingreso de caja hasta cobrarla.',
+        ? `Se creará la venta en Ventas, el ingreso en Caja y se marcará el recordatorio como venta cargada. Turno: ${shiftOptionLabel(selectedShift)}.`
+        : `Se creará la venta como pendiente/cuenta corriente y se marcará el recordatorio como venta pendiente. Turno: ${shiftOptionLabel(selectedShift)}.`,
       confirmText: paid ? 'Generar venta' : 'Cargar pendiente',
       tone: paid ? 'warning' : 'info',
     })
@@ -468,6 +481,10 @@ export function RemindersPage() {
         paymentMethod: method,
         creditSurchargePercent: row.creditSurchargePercent || DEFAULT_CREDIT_SURCHARGE_PERCENT,
         paid: paid && method !== 'Cuenta corriente',
+        shiftId: selectedShift.id,
+        shiftName: selectedShift.name || '',
+        shiftDate: selectedShift.date || saleDate,
+        ...shiftUserPayload(selectedShift),
         stockAffected: Boolean(row.affectStock),
         notes: row.notes || row.message || row.title || 'Venta futura generada desde recordatorios.',
       })

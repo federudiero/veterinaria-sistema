@@ -15,6 +15,7 @@ import {
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
+import { filterOpenShiftsForUser, isUserAssignedToShift, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
 
 const paymentMethods = ['Efectivo', 'Transferencia', 'Debito', 'Credito', 'Cuenta corriente']
 const qtyPresets = [1, 2, 3, 5]
@@ -77,12 +78,11 @@ export function QuickSalePage() {
   const [showDetails, setShowDetails] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const openShiftOptions = useMemo(() => shifts.items
-    .filter((item) => item.date === form.date && item.status !== 'Cerrado')
+  const openShiftOptions = useMemo(() => filterOpenShiftsForUser(shifts.items, user, form.date)
     .map((item) => ({
       value: item.id,
-      label: `${item.name || 'Sin nombre'} ${item.startTime || ''}-${item.endTime || ''}`.trim(),
-    })), [form.date, shifts.items])
+      label: shiftOptionLabel(item),
+    })), [form.date, shifts.items, user])
 
   useEffect(() => {
     if (form.shiftId || !openShiftOptions.length) return
@@ -120,6 +120,7 @@ export function QuickSalePage() {
   const todayPaid = todayActiveSales.filter((item) => item.paid)
   const todayPending = todayActiveSales.filter((item) => !item.paid)
   const recentColumns = [
+    { key: 'shiftName', label: 'Turno', render: (row) => row.shiftName || 'Sin turno' },
     { key: 'clientId', label: 'Cliente', render: (row) => clientMap[row.clientId] || row.clientName || 'Mostrador' },
     { key: 'items', label: 'Detalle', render: (row) => row.items?.map((item) => `${item.name} x${item.qty}`).join(', ') || '-' },
     { key: 'paymentMethod', label: 'Pago', render: (row) => paymentLabelWithSurcharge(row.paymentMethod, row.creditSurchargePercent) },
@@ -167,16 +168,24 @@ export function QuickSalePage() {
       feedback.warning('Selecciona un producto o servicio.')
       return
     }
-    if (!form.shiftId && !isAdmin) {
-      feedback.warning('Selecciona un turno abierto para registrar la venta.')
+    if (!form.shiftId) {
+      feedback.warning('Seleccioná un turno de caja abierto para registrar la venta.')
+      setShowDetails(true)
       return
     }
-    if (form.shiftId && !selectedShift) {
-      feedback.warning('El turno seleccionado ya no esta disponible.')
+    if (!selectedShift) {
+      feedback.warning('El turno de caja seleccionado ya no está disponible.')
+      setShowDetails(true)
       return
     }
-    if (selectedShift?.status === 'Cerrado') {
+    if (selectedShift.status === 'Cerrado') {
       feedback.warning('No se puede registrar una venta en un turno cerrado.')
+      setShowDetails(true)
+      return
+    }
+    if (!isAdmin && !isUserAssignedToShift(selectedShift, user)) {
+      feedback.warning('Tu usuario no está asignado al turno de caja seleccionado.')
+      setShowDetails(true)
       return
     }
     if (forcedCurrentAccount && !form.clientId) {
@@ -193,10 +202,9 @@ export function QuickSalePage() {
         qty: normalizedQty,
         creditSurchargePercent: salePricing.creditSurchargePercent,
         paid: forcedCurrentAccount ? false : Boolean(form.paid),
-        shiftName: selectedShift?.name || '',
-        shiftDate: selectedShift?.date || form.date,
-        veterinarianIds: selectedShift?.veterinarianIds || [],
-        veterinarianNames: selectedShift?.veterinarianNames || [],
+        shiftName: selectedShift.name || '',
+        shiftDate: selectedShift.date || form.date,
+        ...shiftUserPayload(selectedShift),
         clientName: clientMap[form.clientId] || '',
         patientName: patientMap[form.patientId] || '',
       })
@@ -373,7 +381,7 @@ export function QuickSalePage() {
           </div>
 
           <button className="quick-details-toggle" type="button" onClick={() => setShowDetails((value) => !value)}>
-            {showDetails ? 'Ocultar datos opcionales' : 'Cliente, paciente, turno y notas'}
+            {showDetails ? 'Ocultar datos opcionales' : 'Cliente, paciente, turno de caja y notas'}
           </button>
 
           {showDetails && (
@@ -383,9 +391,9 @@ export function QuickSalePage() {
                 <input type="date" value={form.date} onChange={(event) => updateForm('date', event.target.value)} />
               </label>
               <label className="field">
-                <span>Turno abierto</span>
-                <select value={form.shiftId} onChange={(event) => updateForm('shiftId', event.target.value)} required={!isAdmin}>
-                  <option value="">Sin turno</option>
+                <span>Turno de caja abierto</span>
+                <select value={form.shiftId} onChange={(event) => updateForm('shiftId', event.target.value)} required>
+                  <option value="">Seleccionar turno</option>
                   {openShiftOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>

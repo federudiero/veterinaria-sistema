@@ -94,6 +94,31 @@ async function assertOpenShift(transaction, input = {}) {
   return { id: snap.id, ...shift }
 }
 
+async function assertUserCanOperateShift(transaction, shift) {
+  const actor = actorPayload()
+  if (!shift?.id) throw new Error('Seleccioná un turno de caja abierto.')
+  if (!actor.userUid || actor.userUid === 'system') return shift
+
+  const profileSnap = await transaction.get(docRef('users', actor.userUid))
+  if (!profileSnap.exists()) throw new Error('Tu usuario no tiene perfil interno para operar caja.')
+  const profile = profileSnap.data()
+  if (profile.active !== true) throw new Error('Tu usuario no está habilitado para operar caja.')
+  if (profile.role === 'admin') return shift
+
+  const assignedIds = Array.isArray(shift.veterinarianIds) ? shift.veterinarianIds : []
+  if (!assignedIds.includes(actor.userUid) && !assignedIds.includes(profile.email)) {
+    throw new Error('Tu usuario no está asignado al turno de caja seleccionado.')
+  }
+
+  return shift
+}
+
+async function assertRequiredOpenShift(transaction, input = {}) {
+  if (!input.shiftId) throw new Error('Seleccioná un turno de caja abierto antes de operar.')
+  const shift = await assertOpenShift(transaction, input)
+  return assertUserCanOperateShift(transaction, shift)
+}
+
 function auditPayload({ module, action, entityId, summary, before = null, after = null, severity = 'info' }) {
   const actor = actorPayload()
   return withSearchIndex({
@@ -336,7 +361,7 @@ export async function createSaleTransaction(input) {
   const stockMovementRef = newDocRef('stockMovements')
 
   await runTransaction(db, async (transaction) => {
-    const shift = await assertOpenShift(transaction, input)
+    const shift = await assertRequiredOpenShift(transaction, input)
     const productRef = docRef('products', input.productId)
     const productSnap = await transaction.get(productRef)
     if (!productSnap.exists()) throw new Error('El producto seleccionado ya no existe.')
@@ -487,7 +512,7 @@ export async function createReminderSaleTransaction(input) {
   const accountRef = input.paymentMethod === 'Cuenta corriente' || !input.paid ? newDocRef('currentAccounts') : null
 
   await runTransaction(db, async (transaction) => {
-    const shift = input.shiftId ? await assertOpenShift(transaction, input) : null
+    const shift = await assertRequiredOpenShift(transaction, input)
     const productRef = input.productId ? docRef('products', input.productId) : null
     const productSnap = productRef ? await transaction.get(productRef) : null
     const product = productSnap?.exists() ? productSnap.data() : null
@@ -662,7 +687,7 @@ export async function collectSaleTransaction(sale, input = {}) {
   const accountRef = sale.currentAccountId ? docRef('currentAccounts', sale.currentAccountId) : null
 
   await runTransaction(db, async (transaction) => {
-    if (input.shiftId) await assertOpenShift(transaction, input)
+    const shift = await assertRequiredOpenShift(transaction, input)
     const saleSnap = await transaction.get(saleRef)
     if (!saleSnap.exists()) throw new Error('La venta ya no existe.')
     const currentSale = saleSnap.data()
@@ -695,7 +720,7 @@ export async function collectSaleTransaction(sale, input = {}) {
       patientId: currentSale.patientId || '',
       clientName: currentSale.clientName || '',
       patientName: currentSale.patientName || '',
-      ...shiftPayload({ ...currentSale, ...input }),
+      ...shiftPayload({ ...currentSale, ...input, ...(shift || {}) }),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       ...actorPayload(),
@@ -826,7 +851,7 @@ export async function createPurchaseTransaction(input) {
   const cashRef = input.paid ? newDocRef('cashMovements') : null
 
   await runTransaction(db, async (transaction) => {
-    const shift = input.shiftId ? await assertOpenShift(transaction, input) : null
+    const shift = input.paid ? await assertRequiredOpenShift(transaction, input) : (input.shiftId ? await assertOpenShift(transaction, input) : null)
     const productRef = docRef('products', input.productId)
     const productSnap = await transaction.get(productRef)
     if (!productSnap.exists()) throw new Error('El producto seleccionado ya no existe.')
@@ -993,7 +1018,7 @@ export async function collectCurrentAccountTransaction(account, input = {}) {
   const saleRef = account.relatedSaleId ? docRef('sales', account.relatedSaleId) : null
 
   await runTransaction(db, async (transaction) => {
-    if (input.shiftId) await assertOpenShift(transaction, input)
+    const shift = await assertRequiredOpenShift(transaction, input)
     const accountSnap = await transaction.get(accountRef)
     if (!accountSnap.exists()) throw new Error('El movimiento de cuenta corriente ya no existe.')
     const currentAccount = accountSnap.data()
@@ -1027,7 +1052,7 @@ export async function collectCurrentAccountTransaction(account, input = {}) {
       relatedSaleId: currentAccount.relatedSaleId || '',
       clientId: currentAccount.clientId || '',
       patientId: currentAccount.patientId || '',
-      ...shiftPayload({ ...currentAccount, ...input }),
+      ...shiftPayload({ ...currentAccount, ...input, ...(shift || {}) }),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       ...actorPayload(),
@@ -1064,7 +1089,7 @@ export async function createCashMovementTransaction(input) {
   assertDb()
   const movementRef = newDocRef('cashMovements')
   await runTransaction(db, async (transaction) => {
-    const shift = input.shiftId ? await assertOpenShift(transaction, input) : null
+    const shift = await assertRequiredOpenShift(transaction, input)
     const amount = numberValue(input.amount)
     if (amount <= 0) throw new Error('El importe debe ser mayor a cero.')
     const payload = withSearchIndex({
@@ -1094,20 +1119,19 @@ export async function createCashMovementTransaction(input) {
 
 export async function closeCashTransaction(input = {}) {
   assertDb()
+  if (!input.shiftId) throw new Error('Seleccioná un turno de caja para cerrar.')
   const date = input.date || todayISO()
-  const openConstraints = [where('closed', '==', false)]
-  if (input.shiftId) openConstraints.push(where('shiftId', '==', input.shiftId))
-  else openConstraints.push(where('date', '==', date))
+  const openConstraints = [where('closed', '==', false), where('shiftId', '==', input.shiftId)]
   openConstraints.push(limit(450))
   const openQuery = query(collectionRef('cashMovements'), ...openConstraints)
   const openSnapshot = await getDocs(openQuery)
   if (openSnapshot.empty) throw new Error('No hay movimientos abiertos para cerrar.')
   if (openSnapshot.size >= 450) throw new Error('Hay demasiados movimientos abiertos. Cerrá por tandas o pedí una versión con cierre server-side.')
 
-  const closureRef = docRef('cashClosures', input.shiftId ? `closure_${date}_${input.shiftId}` : `closure_${date}`)
+  const closureRef = docRef('cashClosures', `closure_${date}_${input.shiftId}`)
 
   await runTransaction(db, async (transaction) => {
-    const shift = input.shiftId ? await assertOpenShift(transaction, input) : null
+    const shift = await assertRequiredOpenShift(transaction, input)
     const closureSnap = await transaction.get(closureRef)
     if (closureSnap.exists()) throw new Error(`Ya existe un cierre de caja para ${date}.`)
 
@@ -1142,7 +1166,7 @@ export async function closeCashTransaction(input = {}) {
       movementIds: movementDocs.map((item) => item.id),
       movementCount: movementDocs.length,
       status: 'Cerrado',
-      closureType: input.shiftId ? 'shift' : 'legacy',
+      closureType: 'shift',
       ...shiftPayload({ ...input, ...(shift || {}) }),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -1153,7 +1177,7 @@ export async function closeCashTransaction(input = {}) {
       transaction.update(docRef('cashMovements', item.id), {
         closed: true,
         closureId: closureRef.id,
-        shiftClosureId: input.shiftId ? closureRef.id : '',
+        shiftClosureId: closureRef.id,
         closedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       })
@@ -1161,7 +1185,7 @@ export async function closeCashTransaction(input = {}) {
 
     setAudit(transaction, auditPayload({
       module: 'cashClosures',
-      action: input.shiftId ? 'cash.shift.close.transaction' : 'cash.close.transaction',
+      action: 'cash.shift.close.transaction',
       entityId: closureRef.id,
       summary: `Cierre de caja ${date}: neto ${income - expenses}`,
       after: { income, expenses, net: income - expenses, movementCount: movementDocs.length },
@@ -1190,7 +1214,13 @@ export async function closeGlobalCashTransaction(input = {}) {
   const closures = closuresSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
   const shifts = shiftSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
   const openShifts = shifts.filter((item) => item.status !== 'Cerrado')
-  if (openShifts.length) throw new Error('No se puede cerrar el dia: hay turnos abiertos.')
+  if (openShifts.length) throw new Error('No se puede cerrar el día: hay turnos de caja abiertos.')
+
+  const openMovementsSnapshot = await getDocs(query(collectionRef('cashMovements'), where('date', '==', date), where('closed', '==', false), limit(450)))
+  const openMovements = openMovementsSnapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() }))
+    .filter((item) => item.status !== 'Anulado')
+  if (openMovements.length) throw new Error('No se puede cerrar el día: quedan movimientos de caja abiertos o sin cierre de turno.')
   if (!closures.length) throw new Error('No hay cierres de turno para consolidar.')
 
   const closureRef = docRef('globalCashClosures', `global_${date}`)

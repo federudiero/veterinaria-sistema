@@ -21,6 +21,7 @@ import {
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
+import { filterOpenShiftsForUser, isUserAssignedToShift, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
 
 const paymentMethods = ['Efectivo', 'Transferencia', 'Debito', 'Credito', 'Cuenta corriente']
 
@@ -77,7 +78,7 @@ export function SalesPage() {
 
   const shiftOptions = useMemo(() => shifts.items.map((item) => ({
     value: item.id,
-    label: `${dateLabel(item.date)} - ${item.name || 'Sin nombre'} (${item.status || 'Abierto'})`,
+    label: `${dateLabel(item.date)} - ${item.name || 'Sin nombre'} (${item.status || 'Abierto'}) · ${item.veterinarianNames?.join(', ') || 'Sin responsable'}`,
   })), [shifts.items])
 
   const vetOptions = useMemo(() => uniqueOptions(shifts.items.flatMap((item) => (item.veterinarianIds || []).map((id, index) => ({
@@ -85,12 +86,11 @@ export function SalesPage() {
     label: item.veterinarianNames?.[index] || id,
   })))), [shifts.items])
 
-  const openShiftOptionsForSale = useMemo(() => shifts.items
-    .filter((item) => item.date === form.date && item.status !== 'Cerrado')
+  const openShiftOptionsForSale = useMemo(() => filterOpenShiftsForUser(shifts.items, user, form.date)
     .map((item) => ({
       value: item.id,
-      label: `${item.name || 'Sin nombre'} ${item.startTime || ''}-${item.endTime || ''}`,
-    })), [form.date, shifts.items])
+      label: shiftOptionLabel(item),
+    })), [form.date, shifts.items, user])
 
   const selectedShift = useMemo(
     () => shifts.items.find((item) => item.id === form.shiftId),
@@ -135,6 +135,7 @@ export function SalesPage() {
     { key: 'clientId', label: 'Cliente', render: (row) => clientMap[row.clientId] || row.clientName || '-' },
     { key: 'patientId', label: 'Paciente', render: (row) => patientMap[row.patientId] || row.patientName || '-' },
     { key: 'items', label: 'Detalle', render: (row) => row.items?.map((item) => `${item.name} x${item.qty}`).join(', ') || '-' },
+    { key: 'userEmail', label: 'Vendido por', render: (row) => row.userEmail || '-' },
     { key: 'paymentMethod', label: 'Pago', render: (row) => paymentLabelWithSurcharge(row.paymentMethod, row.creditSurchargePercent) },
     { key: 'total', label: 'Total', render: (row) => money(row.total) },
     { key: 'paymentStatus', label: 'Estado', render: (row) => row.status === 'Anulada' ? 'Anulada' : row.paid ? 'Pagada' : 'Pendiente' },
@@ -143,7 +144,7 @@ export function SalesPage() {
   const exportColumns = [
     ...columns,
     { key: 'shiftDate', label: 'Fecha turno' },
-    { key: 'veterinarianNames', label: 'Veterinarios', exportValue: (row) => row.veterinarianNames?.join(', ') || '-' },
+    { key: 'veterinarianNames', label: 'Responsables turno', exportValue: (row) => row.veterinarianNames?.join(', ') || '-' },
     { key: 'subtotal', label: 'Subtotal', exportValue: (row) => money(row.subtotal || row.total) },
     { key: 'creditSurchargePercent', label: 'Recargo credito %', exportValue: (row) => row.creditSurchargePercent ? `${row.creditSurchargePercent}%` : '-' },
     { key: 'creditSurchargeAmount', label: 'Recargo credito $', exportValue: (row) => row.creditSurchargeAmount ? money(row.creditSurchargeAmount) : '-' },
@@ -191,26 +192,29 @@ export function SalesPage() {
       return
     }
     if (!selectedProduct) return
-    if (!form.shiftId && !isAdmin) {
-      feedback.warning('Selecciona un turno abierto para registrar la venta.')
+    if (!form.shiftId) {
+      feedback.warning('Seleccioná un turno de caja abierto para registrar la venta.')
       return
     }
-    if (form.shiftId && !selectedShift) {
-      feedback.warning('El turno seleccionado ya no esta disponible.')
+    if (!selectedShift) {
+      feedback.warning('El turno de caja seleccionado ya no está disponible.')
       return
     }
-    if (selectedShift?.status === 'Cerrado') {
+    if (selectedShift.status === 'Cerrado') {
       feedback.warning('No se puede registrar una venta en un turno cerrado.')
+      return
+    }
+    if (!isAdmin && !isUserAssignedToShift(selectedShift, user)) {
+      feedback.warning('Tu usuario no está asignado al turno de caja seleccionado.')
       return
     }
     setSaving(true)
     try {
       await repository.createSaleTransaction({
         ...form,
-        shiftName: selectedShift?.name || '',
-        shiftDate: selectedShift?.date || form.date,
-        veterinarianIds: selectedShift?.veterinarianIds || [],
-        veterinarianNames: selectedShift?.veterinarianNames || [],
+        shiftName: selectedShift.name || '',
+        shiftDate: selectedShift.date || form.date,
+        ...shiftUserPayload(selectedShift),
         qty: numberValue(form.qty) || 1,
         creditSurchargePercent: salePricing.creditSurchargePercent,
         paid: forcedCurrentAccount ? false : Boolean(form.paid),
@@ -240,15 +244,23 @@ export function SalesPage() {
       tone: 'warning',
     })
     if (!ok) return
+    const rowShift = shifts.items.find((item) => item.id === row.shiftId)
+    if (!row.shiftId || !rowShift) {
+      feedback.warning('La venta no tiene un turno de caja abierto asociado. Revisá el turno antes de cobrar.')
+      return
+    }
+    if (!isAdmin && !isUserAssignedToShift(rowShift, user)) {
+      feedback.warning('Tu usuario no está asignado al turno de caja de esta venta.')
+      return
+    }
     try {
       await repository.collectSaleTransaction(row, {
         date: todayISO(),
         method: row.paymentMethod === 'Cuenta corriente' ? 'Efectivo' : row.paymentMethod,
-        shiftId: row.shiftId || '',
-        shiftName: row.shiftName || '',
-        shiftDate: row.shiftDate || row.date || todayISO(),
-        veterinarianIds: row.veterinarianIds || [],
-        veterinarianNames: row.veterinarianNames || [],
+        shiftId: rowShift.id,
+        shiftName: rowShift.name || row.shiftName || '',
+        shiftDate: rowShift.date || row.shiftDate || row.date || todayISO(),
+        ...shiftUserPayload(rowShift),
       })
       feedback.success('La venta quedo cobrada y trazada en caja/auditoria.')
       sales.refresh?.()
@@ -288,7 +300,7 @@ export function SalesPage() {
       <SectionHeader
         eyebrow="Comercial"
         title="Ventas"
-        description="Ventas por dia y turno: stock, caja, deuda y auditoria quedan sincronizados. Las cuentas corrientes se gestionan en su propia seccion."
+        description="Ventas por día, turno de caja y usuario: stock, caja, deuda y auditoría quedan sincronizados. Las cuentas corrientes se gestionan en su propia seccion."
         actions={
           <>
             <ExportButtons
@@ -353,7 +365,7 @@ export function SalesPage() {
             </select>
           </label>
           <label className="field">
-            <span>Veterinario</span>
+            <span>Responsable</span>
             <select value={vetFilter} onChange={(event) => setVetFilter(event.target.value)}>
               <option value="">Todos</option>
               {vetOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -402,7 +414,7 @@ export function SalesPage() {
               onChange={handleChange}
               fields={[
                 { name: 'date', label: 'Fecha', type: 'date', required: true },
-                { name: 'shiftId', label: 'Turno activo', type: 'select', options: openShiftOptionsForSale, required: !isAdmin, hint: openShiftOptionsForSale.length ? '' : 'No hay turnos abiertos para la fecha seleccionada.' },
+                { name: 'shiftId', label: 'Turno de caja abierto', type: 'select', options: openShiftOptionsForSale, required: true, hint: openShiftOptionsForSale.length ? 'Solo aparecen los turnos abiertos asignados a tu usuario. Administrador ve todos.' : 'No hay turnos de caja abiertos/asignados para la fecha seleccionada.' },
                 { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
                 { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions },
                 { name: 'productId', label: 'Producto / servicio', type: 'select', options: productOptions, required: true },

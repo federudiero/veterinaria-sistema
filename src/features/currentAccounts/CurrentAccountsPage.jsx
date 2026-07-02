@@ -15,6 +15,7 @@ import { dateLabel, money, numberValue, sumBy, todayISO } from '../../utils/form
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
+import { filterOpenShiftsForUser, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
 
 const paymentInitial = { date: todayISO(), shiftId: '', amount: 0, method: 'Efectivo' }
 
@@ -34,7 +35,7 @@ export function CurrentAccountsPage() {
   const paymentFormId = useId()
   const manualFormId = useId()
   const feedback = useFeedback()
-  const { hasPermission } = useAuth()
+  const { hasPermission, user } = useAuth()
   const canWrite = hasPermission('caja.write')
 
   const activeRows = accounts.items.filter((item) => item.status !== 'Anulado')
@@ -66,12 +67,11 @@ export function CurrentAccountsPage() {
   ]
 
   const currentPaymentBalance = useMemo(() => paymentRow ? pendingAmount(paymentRow) : 0, [paymentRow])
-  const paymentShiftOptions = useMemo(() => shifts.items
-    .filter((item) => item.date === paymentForm.date && item.status !== 'Cerrado')
+  const paymentShiftOptions = useMemo(() => filterOpenShiftsForUser(shifts.items, user, paymentForm.date)
     .map((item) => ({
       value: item.id,
-      label: `${item.name || 'Sin nombre'} ${item.startTime || ''}-${item.endTime || ''}`,
-    })), [paymentForm.date, shifts.items])
+      label: shiftOptionLabel(item),
+    })), [paymentForm.date, shifts.items, user])
 
   function openPayment(row) {
     setPaymentRow(row)
@@ -91,7 +91,7 @@ export function CurrentAccountsPage() {
     if (!canWrite || !paymentRow) return
     const paymentShift = shifts.items.find((item) => item.id === paymentForm.shiftId)
     if (!paymentShift) {
-      feedback.warning('Selecciona un turno abierto para registrar el pago.')
+      feedback.warning('Seleccioná un turno de caja abierto/asignado para registrar el pago.')
       return
     }
     setSaving(true)
@@ -101,8 +101,7 @@ export function CurrentAccountsPage() {
         shiftId: paymentShift.id,
         shiftName: paymentShift.name || '',
         shiftDate: paymentShift.date || paymentForm.date,
-        veterinarianIds: paymentShift.veterinarianIds || [],
-        veterinarianNames: paymentShift.veterinarianNames || [],
+        ...shiftUserPayload(paymentShift),
         amount: numberValue(paymentForm.amount),
         method: paymentForm.method,
       })
@@ -219,7 +218,7 @@ export function CurrentAccountsPage() {
               onChange={handlePaymentChange}
               fields={[
                 { name: 'date', label: 'Fecha de pago', type: 'date', required: true },
-                { name: 'shiftId', label: 'Turno activo', type: 'select', options: paymentShiftOptions, required: true, hint: paymentShiftOptions.length ? '' : 'No hay turnos abiertos para la fecha seleccionada.' },
+                { name: 'shiftId', label: 'Turno de caja abierto', type: 'select', options: paymentShiftOptions, required: true, hint: paymentShiftOptions.length ? 'El cobro queda asociado a este turno de caja.' : 'No hay turnos de caja abiertos/asignados para la fecha seleccionada.' },
                 { name: 'amount', label: 'Importe a cobrar', type: 'number', required: true },
                 { name: 'method', label: 'Método', type: 'select', options: ['Efectivo', 'Transferencia', 'Débito', 'Crédito', 'Otro'] },
               ]}

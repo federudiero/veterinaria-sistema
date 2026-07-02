@@ -14,6 +14,7 @@ import { dateLabel, money, numberValue, sumBy, todayISO } from '../../utils/form
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
+import { filterOpenShiftsForUser, isUserAssignedToShift, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
 
 const initialForm = { date: todayISO(), shiftId: '', type: 'Ingreso', concept: '', method: 'Efectivo', amount: 0 }
 
@@ -39,20 +40,21 @@ export function CashPage() {
   const [saving, setSaving] = useState(false)
   const movementFormId = useId()
   const feedback = useFeedback()
-  const { hasPermission } = useAuth()
+  const { hasPermission, user } = useAuth()
   const canWrite = hasPermission('caja.write')
   const canClose = hasPermission('caja.close')
 
-  const shiftOptions = useMemo(() => shifts.items.map((item) => ({
-    value: item.id,
-    label: `${dateLabel(item.date)} - ${item.name || 'Sin nombre'} (${item.status || 'Abierto'})`,
-  })), [shifts.items])
-  const formShiftOptions = useMemo(() => shifts.items
-    .filter((item) => item.date === form.date && item.status !== 'Cerrado')
+  const shiftOptions = useMemo(() => shifts.items
+    .filter((item) => user?.role === 'admin' || isUserAssignedToShift(item, user))
     .map((item) => ({
       value: item.id,
-      label: `${item.name || 'Sin nombre'} ${item.startTime || ''}-${item.endTime || ''}`,
-    })), [form.date, shifts.items])
+      label: `${dateLabel(item.date)} - ${item.name || 'Sin nombre'} (${item.status || 'Abierto'}) · ${item.veterinarianNames?.join(', ') || 'Sin responsable'}`,
+    })), [shifts.items, user])
+  const formShiftOptions = useMemo(() => filterOpenShiftsForUser(shifts.items, user, form.date)
+    .map((item) => ({
+      value: item.id,
+      label: shiftOptionLabel(item),
+    })), [form.date, shifts.items, user])
 
   const openMovements = cash.items.filter((item) => !item.closed && item.status !== 'Anulado')
   const income = sumBy(openMovements.filter((item) => item.type === 'Ingreso'), (item) => item.amount)
@@ -72,6 +74,7 @@ export function CashPage() {
     { key: 'type', label: 'Tipo' },
     { key: 'concept', label: 'Concepto' },
     { key: 'method', label: 'Metodo' },
+    { key: 'userEmail', label: 'Registrado por', render: (row) => row.userEmail || '-' },
     { key: 'amount', label: 'Importe', render: (row) => money(row.amount) },
     { key: 'status', label: 'Estado', render: (row) => row.status || (row.closed ? 'Cerrado' : 'Activo') },
     { key: 'closed', label: 'Cierre', render: (row) => row.closed ? 'Cerrado' : 'Abierto' },
@@ -84,6 +87,7 @@ export function CashPage() {
     { key: 'expenses', label: 'Egresos', render: (row) => money(row.expenses) },
     { key: 'net', label: 'Neto', render: (row) => money(row.net) },
     { key: 'movementCount', label: 'Movimientos', render: (row) => row.movementCount || row.movementIds?.length || 0 },
+    { key: 'userEmail', label: 'Cerrado por', render: (row) => row.userEmail || row.closedBy || '-' },
     { key: 'status', label: 'Estado' },
   ]
 
@@ -108,18 +112,21 @@ export function CashPage() {
     }
     const movementShift = shifts.items.find((item) => item.id === form.shiftId)
     if (!movementShift) {
-      feedback.warning('Selecciona un turno abierto para el movimiento de caja.')
+      feedback.warning('Seleccioná un turno de caja abierto para el movimiento.')
       return
     }
     setSaving(true)
     try {
+      if (movementShift.status === 'Cerrado') {
+        feedback.warning('No se puede operar sobre un turno cerrado.')
+        return
+      }
       await repository.createCashMovementTransaction({
         ...form,
         amount: numberValue(form.amount),
         shiftName: movementShift.name || '',
         shiftDate: movementShift.date || form.date,
-        veterinarianIds: movementShift.veterinarianIds || [],
-        veterinarianNames: movementShift.veterinarianNames || [],
+        ...shiftUserPayload(movementShift),
       })
       feedback.success('El movimiento de caja se guardo con auditoria automatica.')
       cash.refresh?.()
@@ -139,25 +146,32 @@ export function CashPage() {
     }
     const closeShift = shifts.items.find((item) => item.id === shiftFilter)
     if (!closeShift) {
-      feedback.warning('Selecciona un turno para cerrar su caja.')
+      feedback.warning('Seleccioná un turno de caja para cerrar.')
       return
     }
     const ok = await feedback.confirm({
       title: 'Cerrar caja del turno',
-      message: 'El cierre sera inmutable. Los movimientos abiertos del turno quedaran vinculados al cierre y el turno pasara a Cerrado.',
+      message: 'El cierre será inmutable. Los movimientos abiertos del turno quedarán vinculados al cierre y el turno pasará a Cerrado.',
       confirmText: 'Cerrar turno',
       tone: 'warning',
     })
     if (!ok) return
     setSaving(true)
     try {
+      if (closeShift.status === 'Cerrado') {
+        feedback.warning('Ese turno ya está cerrado.')
+        return
+      }
+      if (user?.role !== 'admin' && !isUserAssignedToShift(closeShift, user)) {
+        feedback.warning('Tu usuario no está asignado al turno de caja seleccionado.')
+        return
+      }
       await repository.closeCashTransaction({
         date: closeShift.date || cash.dateFrom || todayISO(),
         shiftId: closeShift.id,
         shiftName: closeShift.name || '',
         shiftDate: closeShift.date || cash.dateFrom || todayISO(),
-        veterinarianIds: closeShift.veterinarianIds || [],
-        veterinarianNames: closeShift.veterinarianNames || [],
+        ...shiftUserPayload(closeShift),
       })
       feedback.success('La caja del turno se cerro correctamente con auditoria.')
       cash.refresh?.()
@@ -200,8 +214,8 @@ export function CashPage() {
     <section>
       <SectionHeader
         eyebrow="Administracion"
-        title="Caja por turno"
-        description="Caja transaccional por turno, con cierres parciales por veterinarios y cierre global diario consolidado."
+        title="Caja por turno de caja"
+        description="Caja transaccional por turno operativo: movimientos, ventas cobradas, cierre por responsable y cierre global diario consolidado."
         actions={
           <>
             <ExportButtons
@@ -231,7 +245,7 @@ export function CashPage() {
       </div>
 
       <div className="panel method-summary">
-        <h2>Resumen por metodo abierto</h2>
+        <h2>Resumen abierto por método</h2>
         <div className="inline-metrics">
           {Object.entries(byMethod).length === 0 ? <span className="muted">Sin movimientos abiertos.</span> : Object.entries(byMethod).map(([method, amount]) => (
             <span className="metric-pill" key={method}>{method}: <strong>{money(amount)}</strong></span>
@@ -257,7 +271,7 @@ export function CashPage() {
           />
           <div className="panel compact-card">
             <label className="field">
-              <span>Turno</span>
+              <span>Turno de caja</span>
               <select value={shiftFilter} onChange={(event) => setShiftFilter(event.target.value)}>
                 <option value="">Todos</option>
                 {shiftOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -316,7 +330,7 @@ export function CashPage() {
               onChange={handleChange}
               fields={[
                 { name: 'date', label: 'Fecha', type: 'date' },
-                { name: 'shiftId', label: 'Turno activo', type: 'select', options: formShiftOptions, required: true, hint: formShiftOptions.length ? '' : 'No hay turnos abiertos para la fecha seleccionada.' },
+                { name: 'shiftId', label: 'Turno de caja abierto', type: 'select', options: formShiftOptions, required: true, hint: formShiftOptions.length ? 'Solo aparecen turnos abiertos asignados a tu usuario.' : 'No hay turnos de caja abiertos/asignados para la fecha seleccionada.' },
                 { name: 'type', label: 'Tipo', type: 'select', options: ['Ingreso', 'Egreso'] },
                 { name: 'concept', label: 'Concepto', required: true },
                 { name: 'method', label: 'Metodo', type: 'select', options: ['Efectivo', 'Transferencia', 'Debito', 'Credito', 'Otro'] },

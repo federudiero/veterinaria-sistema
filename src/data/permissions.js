@@ -21,7 +21,7 @@ export const PERMISSION_GROUPS = [
     title: 'Agenda',
     items: [
       ['agenda.read', 'Ver agenda, cola y recordatorios'],
-      ['agenda.write', 'Crear/editar agenda, cola, recordatorios y turnos'],
+      ['agenda.write', 'Crear/editar agenda, cola y recordatorios'],
     ],
   },
   {
@@ -31,7 +31,7 @@ export const PERMISSION_GROUPS = [
       ['ventas.write', 'Crear/cobrar/anular ventas'],
       ['caja.read', 'Ver caja y cuentas corrientes'],
       ['caja.write', 'Crear movimientos de caja'],
-      ['caja.close', 'Cerrar caja'],
+      ['caja.close', 'Crear/cerrar turnos y cerrar caja'],
       ['stock.read', 'Ver productos y stock'],
       ['stock.write', 'Crear/editar productos y stock'],
       ['compras.read', 'Ver proveedores y compras'],
