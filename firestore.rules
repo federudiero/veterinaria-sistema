@@ -1,0 +1,233 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(tenantId) {
+      return /databases/$(database)/documents/tenants/$(tenantId)/users/$(request.auth.uid);
+    }
+
+    function isOwnUserDoc(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isTenantUser(tenantId) {
+      return signedIn() && exists(userPath(tenantId));
+    }
+
+    function userData(tenantId) {
+      return get(userPath(tenantId)).data;
+    }
+
+    function userIsActive(tenantId) {
+      return isTenantUser(tenantId) && userData(tenantId).active == true;
+    }
+
+    function isAdmin(tenantId) {
+      return userIsActive(tenantId) && userData(tenantId).role == 'admin';
+    }
+
+    function hasRole(tenantId, roles) {
+      return userIsActive(tenantId) && userData(tenantId).role in roles;
+    }
+
+    function userPermissions(tenantId) {
+      return userData(tenantId).permissions is list ? userData(tenantId).permissions : [];
+    }
+
+    function hasPermission(tenantId, permission) {
+      return userIsActive(tenantId) && (
+        isAdmin(tenantId) ||
+        permission in userPermissions(tenantId)
+      );
+    }
+
+
+
+    function productStockOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'stock',
+        'updatedAt',
+        'searchText',
+        'searchTokens'
+      ]);
+    }
+
+    function isValidSelfAccessRequest(tenantId, userId) {
+      return isOwnUserDoc(userId)
+        && !exists(/databases/$(database)/documents/tenants/$(tenantId)/users/$(userId))
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'pendiente'
+        && request.resource.data.active == false
+        && request.resource.data.permissions is list
+        && request.resource.data.permissions.size() == 0
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'email',
+          'displayName',
+          'role',
+          'active',
+          'permissions',
+          'accessRequestedAt',
+          'createdAt',
+          'updatedAt',
+          'searchText',
+          'searchTokens'
+        ]);
+    }
+
+    match /tenants/{tenantId} {
+      allow get: if userIsActive(tenantId);
+      allow list: if false;
+      allow create, update: if isAdmin(tenantId);
+      allow delete: if false;
+
+      match /users/{userId} {
+        // El usuario autenticado siempre puede leer su propio perfil.
+        // Esto evita el bloqueo inicial de "Missing or insufficient permissions"
+        // cuando Auth ya existe pero el frontend necesita validar el perfil interno.
+        allow get: if isOwnUserDoc(userId) || hasPermission(tenantId, 'usuarios.read');
+        allow list: if hasPermission(tenantId, 'usuarios.read');
+        allow create: if hasPermission(tenantId, 'usuarios.write') || isValidSelfAccessRequest(tenantId, userId);
+        allow update: if hasPermission(tenantId, 'usuarios.write');
+        allow delete: if hasPermission(tenantId, 'usuarios.write') && request.auth.uid != userId;
+      }
+
+      match /settings/{docId} {
+        allow read: if userIsActive(tenantId);
+        allow write: if hasPermission(tenantId, 'configuracion.write');
+      }
+
+      match /auditLogs/{docId} {
+        allow read: if hasPermission(tenantId, 'auditoria.read');
+        allow create: if userIsActive(tenantId);
+        allow update, delete: if false;
+      }
+
+      match /clients/{docId} {
+        allow read: if hasPermission(tenantId, 'clientes.read');
+        allow write: if hasPermission(tenantId, 'clientes.write');
+      }
+
+      match /patients/{docId} {
+        allow read: if hasPermission(tenantId, 'pacientes.read');
+        allow write: if hasPermission(tenantId, 'pacientes.write');
+      }
+
+      match /clinicalRecords/{docId} {
+        allow read: if hasPermission(tenantId, 'clinica.read');
+        allow write: if hasPermission(tenantId, 'clinica.write');
+      }
+
+      match /vaccines/{docId} {
+        allow read: if hasPermission(tenantId, 'clinica.read');
+        allow write: if hasPermission(tenantId, 'clinica.write');
+      }
+
+      match /prescriptions/{docId} {
+        allow read: if hasPermission(tenantId, 'clinica.read');
+        allow write: if hasPermission(tenantId, 'clinica.write');
+      }
+
+      match /appointments/{docId} {
+        allow read: if hasPermission(tenantId, 'agenda.read');
+        allow write: if hasPermission(tenantId, 'agenda.write');
+      }
+
+      match /waitingQueue/{docId} {
+        allow read: if hasPermission(tenantId, 'agenda.read');
+        allow write: if hasPermission(tenantId, 'agenda.write');
+      }
+
+      match /shifts/{docId} {
+        allow read: if hasPermission(tenantId, 'agenda.read') || hasPermission(tenantId, 'ventas.read') || hasPermission(tenantId, 'caja.read');
+        allow write: if hasPermission(tenantId, 'agenda.write') || hasPermission(tenantId, 'caja.close');
+      }
+
+      match /reminders/{docId} {
+        allow read: if hasPermission(tenantId, 'agenda.read');
+        allow write: if hasPermission(tenantId, 'agenda.write');
+      }
+
+      match /products/{docId} {
+        allow read: if hasPermission(tenantId, 'stock.read')
+          || hasPermission(tenantId, 'ventas.read')
+          || hasPermission(tenantId, 'compras.read');
+        allow create, delete: if hasPermission(tenantId, 'stock.write');
+        allow update: if hasPermission(tenantId, 'stock.write')
+          || ((hasPermission(tenantId, 'ventas.write') || hasPermission(tenantId, 'compras.write')) && productStockOnlyUpdate());
+      }
+
+      match /stockMovements/{docId} {
+        allow read: if hasPermission(tenantId, 'stock.read');
+        allow create: if hasPermission(tenantId, 'stock.write')
+          || hasPermission(tenantId, 'ventas.write')
+          || hasPermission(tenantId, 'compras.write');
+        allow update, delete: if false;
+      }
+
+      match /sales/{docId} {
+        allow read: if hasPermission(tenantId, 'ventas.read');
+        allow write: if hasPermission(tenantId, 'ventas.write');
+      }
+
+      match /currentAccounts/{docId} {
+        allow read: if hasPermission(tenantId, 'caja.read') || hasPermission(tenantId, 'ventas.read');
+        allow write: if hasPermission(tenantId, 'caja.write') || hasPermission(tenantId, 'ventas.write');
+      }
+
+      match /cashMovements/{docId} {
+        allow read: if hasPermission(tenantId, 'caja.read') || hasPermission(tenantId, 'ventas.read') || hasPermission(tenantId, 'compras.read');
+        allow write: if hasPermission(tenantId, 'caja.write') || hasPermission(tenantId, 'ventas.write') || hasPermission(tenantId, 'compras.write') || hasPermission(tenantId, 'caja.close');
+      }
+
+      match /cashClosures/{docId} {
+        allow read: if hasPermission(tenantId, 'caja.read');
+        allow write: if hasPermission(tenantId, 'caja.close');
+      }
+
+      match /globalCashClosures/{docId} {
+        allow read: if hasPermission(tenantId, 'caja.read');
+        allow write: if hasPermission(tenantId, 'caja.close');
+      }
+
+      match /suppliers/{docId} {
+        allow read: if hasPermission(tenantId, 'compras.read');
+        allow write: if hasPermission(tenantId, 'compras.write');
+      }
+
+      match /purchases/{docId} {
+        allow read: if hasPermission(tenantId, 'compras.read');
+        allow write: if hasPermission(tenantId, 'compras.write');
+      }
+
+      match /futurePurchases/{docId} {
+        allow read: if hasPermission(tenantId, 'ventas.read') || hasPermission(tenantId, 'compras.read');
+        allow write: if hasPermission(tenantId, 'ventas.write') || hasPermission(tenantId, 'compras.write');
+      }
+
+      match /boarding/{docId} {
+        allow read: if hasPermission(tenantId, 'internacion.read');
+        allow write: if hasPermission(tenantId, 'internacion.write');
+      }
+
+      match /memberships/{docId} {
+        allow read: if hasPermission(tenantId, 'mutualismo.read');
+        allow write: if hasPermission(tenantId, 'mutualismo.write');
+      }
+
+      // Fallback controlado: un admin activo puede operar cualquier subcolección
+      // del tenant aunque todavía no tenga una regla específica.
+      // Usuarios con backup.write pueden leer todo el tenant para generar
+      // respaldo operativo, pero no escribir por este fallback.
+      // Para otros roles no-admin, se exige una regla explícita arriba.
+      match /{document=**} {
+        allow read: if isAdmin(tenantId) || hasPermission(tenantId, 'backup.write');
+        allow write: if isAdmin(tenantId);
+      }
+    }
+  }
+}

@@ -1,0 +1,457 @@
+import React, { useId, useMemo, useState } from 'react'
+import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
+import { DataTable } from '../../components/ui/DataTable.jsx'
+import { Modal } from '../../components/ui/Modal.jsx'
+import { FormGrid } from '../../components/forms/FormGrid.jsx'
+import { StatCard } from '../../components/ui/StatCard.jsx'
+import { Pagination } from '../../components/ui/Pagination.jsx'
+import { ListToolbar } from '../../components/ui/ListToolbar.jsx'
+import { ExportButtons } from '../../components/export/ExportButtons.jsx'
+import { IndividualExportActions } from '../../components/export/IndividualExportActions.jsx'
+import { useCollection } from '../../hooks/useCollection.js'
+import { useServerCollectionControls } from '../../hooks/useServerCollectionControls.js'
+import { useLookups } from '../../hooks/useLookups.js'
+import { dateLabel, money, numberValue, sumBy, todayISO } from '../../utils/formatters.js'
+import {
+  DEFAULT_CREDIT_SURCHARGE_PERCENT,
+  calculateSalePricing,
+  isCreditPaymentMethod,
+  paymentLabelWithSurcharge,
+} from '../../utils/salesPricing.js'
+import { useFeedback } from '../../contexts/FeedbackContext.jsx'
+import { useAuth } from '../../contexts/AuthContext.jsx'
+import { repository } from '../../services/repositories/repositoryFactory.js'
+
+const paymentMethods = ['Efectivo', 'Transferencia', 'Debito', 'Credito', 'Cuenta corriente']
+
+const initialForm = {
+  date: todayISO(),
+  clientId: '',
+  patientId: '',
+  shiftId: '',
+  productId: '',
+  qty: 1,
+  paymentMethod: 'Efectivo',
+  creditSurchargePercent: DEFAULT_CREDIT_SURCHARGE_PERCENT,
+  paid: true,
+  dueDate: '',
+  notes: '',
+}
+
+function uniqueOptions(options) {
+  return options.filter((option, index, all) => all.findIndex((item) => item.value === option.value) === index)
+}
+
+export function SalesPage() {
+  const [shiftFilter, setShiftFilter] = useState('')
+  const [methodFilter, setMethodFilter] = useState('')
+  const [vetFilter, setVetFilter] = useState('')
+  const extraWhere = useMemo(() => [
+    ...(shiftFilter ? [{ field: 'shiftId', op: '==', value: shiftFilter }] : []),
+    ...(methodFilter ? [{ field: 'paymentMethod', op: '==', value: methodFilter }] : []),
+    ...(vetFilter ? [{ field: 'veterinarianIds', op: 'array-contains', value: vetFilter }] : []),
+  ], [methodFilter, shiftFilter, vetFilter])
+  const sales = useServerCollectionControls('sales', {
+    dateField: 'date',
+    statusField: 'status',
+    orderByField: 'date',
+    orderDirection: 'desc',
+    initialDateFrom: todayISO(),
+    initialDateTo: todayISO(),
+    extraWhere,
+  })
+  const products = useCollection('products', { limitCount: 300, orderByField: 'name', orderDirection: 'asc' })
+  const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
+  const { clientOptions, patientOptions, clientMap, patientMap, productOptions, productMap, clientById, patientById } = useLookups()
+  const [modalOpen, setModalOpen] = useState(false)
+  const [voidingSale, setVoidingSale] = useState(null)
+  const [voidReason, setVoidReason] = useState('')
+  const [form, setForm] = useState(initialForm)
+  const [saving, setSaving] = useState(false)
+  const saleFormId = useId()
+  const voidFormId = useId()
+  const feedback = useFeedback()
+  const { hasPermission, user } = useAuth()
+  const canWrite = hasPermission('ventas.write')
+  const isAdmin = user?.role === 'admin'
+
+  const shiftOptions = useMemo(() => shifts.items.map((item) => ({
+    value: item.id,
+    label: `${dateLabel(item.date)} - ${item.name || 'Sin nombre'} (${item.status || 'Abierto'})`,
+  })), [shifts.items])
+
+  const vetOptions = useMemo(() => uniqueOptions(shifts.items.flatMap((item) => (item.veterinarianIds || []).map((id, index) => ({
+    value: id,
+    label: item.veterinarianNames?.[index] || id,
+  })))), [shifts.items])
+
+  const openShiftOptionsForSale = useMemo(() => shifts.items
+    .filter((item) => item.date === form.date && item.status !== 'Cerrado')
+    .map((item) => ({
+      value: item.id,
+      label: `${item.name || 'Sin nombre'} ${item.startTime || ''}-${item.endTime || ''}`,
+    })), [form.date, shifts.items])
+
+  const selectedShift = useMemo(
+    () => shifts.items.find((item) => item.id === form.shiftId),
+    [form.shiftId, shifts.items],
+  )
+
+  const activeSales = sales.items.filter((item) => item.status !== 'Anulada')
+  const pending = activeSales.filter((item) => !item.paid)
+  const paid = activeSales.filter((item) => item.paid)
+  const totalPending = sumBy(pending, (item) => item.total)
+  const totalPaid = sumBy(paid, (item) => item.total)
+  const voidedCount = sales.items.filter((item) => item.status === 'Anulada').length
+
+  const selectedProduct = useMemo(
+    () => products.items.find((item) => item.id === form.productId),
+    [products.items, form.productId],
+  )
+
+  const previewSubtotal = numberValue(form.qty) * numberValue(selectedProduct?.price)
+  const salePricing = calculateSalePricing({
+    subtotal: previewSubtotal,
+    paymentMethod: form.paymentMethod,
+    creditSurchargePercent: form.creditSurchargePercent,
+  })
+  const previewTotal = salePricing.total
+  const forcedCurrentAccount = form.paymentMethod === 'Cuenta corriente'
+  const forcedCreditSurcharge = isCreditPaymentMethod(form.paymentMethod)
+  const totalsByShift = activeSales.reduce((acc, item) => {
+    const key = item.shiftName || (item.shiftId ? 'Sin nombre' : 'Sin turno')
+    acc[key] = (acc[key] || 0) + numberValue(item.total)
+    return acc
+  }, {})
+  const totalsByMethod = activeSales.reduce((acc, item) => {
+    const key = item.paymentMethod || 'Sin metodo'
+    acc[key] = (acc[key] || 0) + numberValue(item.total)
+    return acc
+  }, {})
+
+  const columns = [
+    { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
+    { key: 'shiftName', label: 'Turno', render: (row) => row.shiftName || 'Sin turno' },
+    { key: 'clientId', label: 'Cliente', render: (row) => clientMap[row.clientId] || row.clientName || '-' },
+    { key: 'patientId', label: 'Paciente', render: (row) => patientMap[row.patientId] || row.patientName || '-' },
+    { key: 'items', label: 'Detalle', render: (row) => row.items?.map((item) => `${item.name} x${item.qty}`).join(', ') || '-' },
+    { key: 'paymentMethod', label: 'Pago', render: (row) => paymentLabelWithSurcharge(row.paymentMethod, row.creditSurchargePercent) },
+    { key: 'total', label: 'Total', render: (row) => money(row.total) },
+    { key: 'paymentStatus', label: 'Estado', render: (row) => row.status === 'Anulada' ? 'Anulada' : row.paid ? 'Pagada' : 'Pendiente' },
+  ]
+
+  const exportColumns = [
+    ...columns,
+    { key: 'shiftDate', label: 'Fecha turno' },
+    { key: 'veterinarianNames', label: 'Veterinarios', exportValue: (row) => row.veterinarianNames?.join(', ') || '-' },
+    { key: 'subtotal', label: 'Subtotal', exportValue: (row) => money(row.subtotal || row.total) },
+    { key: 'creditSurchargePercent', label: 'Recargo credito %', exportValue: (row) => row.creditSurchargePercent ? `${row.creditSurchargePercent}%` : '-' },
+    { key: 'creditSurchargeAmount', label: 'Recargo credito $', exportValue: (row) => row.creditSurchargeAmount ? money(row.creditSurchargeAmount) : '-' },
+    { key: 'cashMovementId', label: 'Mov. caja' },
+    { key: 'currentAccountId', label: 'Cuenta corriente' },
+    { key: 'clientPhone', label: 'Telefono cliente', exportValue: (row) => clientById[row.clientId]?.phone || '-' },
+    { key: 'clientEmail', label: 'Email cliente', exportValue: (row) => clientById[row.clientId]?.email || '-' },
+    { key: 'clientAddress', label: 'Direccion cliente', exportValue: (row) => clientById[row.clientId]?.address || '-' },
+    { key: 'patientSpecies', label: 'Especie paciente', exportValue: (row) => patientById[row.patientId]?.species || '-' },
+    { key: 'patientBreed', label: 'Raza paciente', exportValue: (row) => patientById[row.patientId]?.breed || '-' },
+    { key: 'voidReason', label: 'Motivo anulacion' },
+    { key: 'notes', label: 'Notas' },
+  ]
+
+  function handleChange(name, value) {
+    setForm((current) => {
+      const normalizedValue = name === 'creditSurchargePercent' && typeof value === 'string'
+        ? value.replace(',', '.')
+        : value
+      const next = {
+        ...current,
+        [name]: normalizedValue,
+        ...(name === 'date' ? { shiftId: '' } : {}),
+        ...(name === 'paymentMethod' && value === 'Cuenta corriente' ? { paid: false } : {}),
+      }
+      if (name === 'paymentMethod' && isCreditPaymentMethod(value)) {
+        next.creditSurchargePercent = current.creditSurchargePercent || DEFAULT_CREDIT_SURCHARGE_PERCENT
+        next.paid = true
+      }
+      return next
+    })
+  }
+
+  function clearAllFilters() {
+    sales.clearFilters()
+    setShiftFilter('')
+    setMethodFilter('')
+    setVetFilter('')
+  }
+
+  async function saveSale(event) {
+    event.preventDefault()
+    if (!canWrite) {
+      feedback.warning('No tenes permiso para crear ventas.')
+      return
+    }
+    if (!selectedProduct) return
+    if (!form.shiftId && !isAdmin) {
+      feedback.warning('Selecciona un turno abierto para registrar la venta.')
+      return
+    }
+    if (form.shiftId && !selectedShift) {
+      feedback.warning('El turno seleccionado ya no esta disponible.')
+      return
+    }
+    if (selectedShift?.status === 'Cerrado') {
+      feedback.warning('No se puede registrar una venta en un turno cerrado.')
+      return
+    }
+    setSaving(true)
+    try {
+      await repository.createSaleTransaction({
+        ...form,
+        shiftName: selectedShift?.name || '',
+        shiftDate: selectedShift?.date || form.date,
+        veterinarianIds: selectedShift?.veterinarianIds || [],
+        veterinarianNames: selectedShift?.veterinarianNames || [],
+        qty: numberValue(form.qty) || 1,
+        creditSurchargePercent: salePricing.creditSurchargePercent,
+        paid: forcedCurrentAccount ? false : Boolean(form.paid),
+        clientName: clientMap[form.clientId] || '',
+        patientName: patientMap[form.patientId] || '',
+      })
+      feedback.success('La venta se registro con stock, caja/cuenta corriente y auditoria en una sola operacion.')
+      sales.refresh?.()
+      setModalOpen(false)
+      setForm(initialForm)
+    } catch (error) {
+      feedback.error(error?.message || 'No se pudo guardar la venta.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function markAsPaid(row) {
+    if (!canWrite) {
+      feedback.warning('No tenes permiso para cobrar ventas.')
+      return
+    }
+    const ok = await feedback.confirm({
+      title: 'Cobrar venta pendiente',
+      message: 'Se creara el ingreso de caja y, si corresponde, se cancelara la cuenta corriente vinculada.',
+      confirmText: 'Cobrar',
+      tone: 'warning',
+    })
+    if (!ok) return
+    try {
+      await repository.collectSaleTransaction(row, {
+        date: todayISO(),
+        method: row.paymentMethod === 'Cuenta corriente' ? 'Efectivo' : row.paymentMethod,
+        shiftId: row.shiftId || '',
+        shiftName: row.shiftName || '',
+        shiftDate: row.shiftDate || row.date || todayISO(),
+        veterinarianIds: row.veterinarianIds || [],
+        veterinarianNames: row.veterinarianNames || [],
+      })
+      feedback.success('La venta quedo cobrada y trazada en caja/auditoria.')
+      sales.refresh?.()
+    } catch (error) {
+      feedback.error(error?.message || 'No se pudo cobrar la venta.')
+    }
+  }
+
+  function openVoid(row) {
+    setVoidingSale(row)
+    setVoidReason('')
+  }
+
+  async function confirmVoid(event) {
+    event.preventDefault()
+    if (!canWrite || !voidingSale) return
+    if (!voidReason.trim()) {
+      feedback.warning('Indica un motivo de anulacion.')
+      return
+    }
+    setSaving(true)
+    try {
+      await repository.voidSaleTransaction(voidingSale, { reason: voidReason.trim(), date: todayISO() })
+      feedback.success('La venta fue anulada. Se revirtio stock/caja/cuenta corriente cuando correspondia.')
+      sales.refresh?.()
+      setVoidingSale(null)
+      setVoidReason('')
+    } catch (error) {
+      feedback.error(error?.message || 'No se pudo anular la venta.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section>
+      <SectionHeader
+        eyebrow="Comercial"
+        title="Ventas"
+        description="Ventas por dia y turno: stock, caja, deuda y auditoria quedan sincronizados. Las cuentas corrientes se gestionan en su propia seccion."
+        actions={
+          <>
+            <ExportButtons
+              title="Ventas"
+              subtitle="Listado filtrado visible de ventas con datos de contacto, paciente, turno, caja, deuda y estado."
+              rows={sales.items}
+              columns={exportColumns}
+              summary={[
+                { label: 'Total cobrado', value: money(totalPaid) },
+                { label: 'Pendiente', value: money(totalPending) },
+                { label: 'Ventas en pagina', value: sales.items.length },
+              ]}
+              fileLabel="ventas"
+            />
+            {canWrite && <button className="btn btn-primary" onClick={() => setModalOpen(true)}>Nueva venta</button>}
+          </>
+        }
+      />
+
+      <div className="stats-grid compact">
+        <StatCard label="Total cobrado" value={money(totalPaid)} tone="success" />
+        <StatCard label="Pendiente" value={money(totalPending)} tone="warning" />
+        <StatCard label="Ventas activas" value={activeSales.length} />
+        <StatCard label="Anuladas" value={voidedCount} tone="danger" />
+      </div>
+
+      <div className="panel method-summary">
+        <h2>Resumen diario por turno y metodo</h2>
+        <div className="inline-metrics">
+          {Object.entries(totalsByShift).map(([shift, amount]) => (
+            <span className="metric-pill" key={shift}>{shift}: <strong>{money(amount)}</strong></span>
+          ))}
+          {Object.entries(totalsByMethod).map(([method, amount]) => (
+            <span className="metric-pill" key={method}>{method}: <strong>{money(amount)}</strong></span>
+          ))}
+          {!Object.keys(totalsByShift).length && <span className="muted">Sin ventas para el rango seleccionado.</span>}
+        </div>
+      </div>
+
+      <ListToolbar
+        query={sales.query}
+        onQueryChange={sales.setQuery}
+        placeholder="Buscar venta por cliente, paciente, producto, fecha o metodo..."
+        dateFrom={sales.dateFrom}
+        dateTo={sales.dateTo}
+        onDateFromChange={sales.setDateFrom}
+        onDateToChange={sales.setDateTo}
+        status={sales.status}
+        onStatusChange={sales.setStatus}
+        statusOptions={['Activa', 'Anulada']}
+        onClearFilters={clearAllFilters}
+      />
+
+      <div className="panel compact-card">
+        <div className="form-grid">
+          <label className="field">
+            <span>Turno</span>
+            <select value={shiftFilter} onChange={(event) => setShiftFilter(event.target.value)}>
+              <option value="">Todos</option>
+              {shiftOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Veterinario</span>
+            <select value={vetFilter} onChange={(event) => setVetFilter(event.target.value)}>
+              <option value="">Todos</option>
+              {vetOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Metodo de pago</span>
+            <select value={methodFilter} onChange={(event) => setMethodFilter(event.target.value)}>
+              <option value="">Todos</option>
+              {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <DataTable
+        rows={sales.items}
+        columns={columns}
+        actions={(row) => (
+          <>
+            <IndividualExportActions row={row} columns={exportColumns} title="Venta" fileLabel="venta" />
+            {canWrite && row.status !== 'Anulada' && !row.paid && <button className="btn btn-small" onClick={() => markAsPaid(row)}>Cobrar</button>}
+            {canWrite && row.status !== 'Anulada' && <button className="btn btn-small btn-danger" onClick={() => openVoid(row)}>Anular</button>}
+          </>
+        )}
+      />
+      <Pagination {...sales} onPageSizeChange={sales.setPageSize} total={sales.items.length} limit={sales.pageSize} />
+
+      {modalOpen && (
+        <Modal
+          title="Nueva venta"
+          onClose={() => setModalOpen(false)}
+          footer={
+            <>
+              <strong className="modal-total">Total: {money(previewTotal)}</strong>
+              <button className="btn" type="button" onClick={() => setModalOpen(false)}>Cancelar</button>
+              <button className="btn btn-primary" type="submit" form={saleFormId} disabled={saving || !selectedProduct}>
+                {saving ? 'Guardando...' : 'Guardar venta'}
+              </button>
+            </>
+          }
+        >
+          <form id={saleFormId} onSubmit={saveSale}>
+            <FormGrid
+              value={form}
+              onChange={handleChange}
+              fields={[
+                { name: 'date', label: 'Fecha', type: 'date', required: true },
+                { name: 'shiftId', label: 'Turno activo', type: 'select', options: openShiftOptionsForSale, required: !isAdmin, hint: openShiftOptionsForSale.length ? '' : 'No hay turnos abiertos para la fecha seleccionada.' },
+                { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
+                { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions },
+                { name: 'productId', label: 'Producto / servicio', type: 'select', options: productOptions, required: true },
+                { name: 'qty', label: 'Cantidad', type: 'number' },
+                { name: 'paymentMethod', label: 'Metodo', type: 'select', options: paymentMethods },
+                ...(forcedCreditSurcharge ? [{ name: 'creditSurchargePercent', label: 'Recargo tarjeta credito (%)', type: 'number', min: '0', max: '100', step: '0.01', inputMode: 'decimal', placeholder: '15', hint: 'Al elegir Credito se carga 15% por defecto. Podes escribir otro porcentaje antes de guardar.' }] : []),
+                { name: 'paid', label: 'Pagado', type: 'checkbox', disabled: forcedCurrentAccount, hint: forcedCurrentAccount ? 'Cuenta corriente siempre queda pendiente.' : '' },
+                { name: 'dueDate', label: 'Vencimiento cuenta corriente', type: 'date' },
+                { name: 'notes', label: 'Notas', type: 'textarea' },
+              ]}
+            />
+            {selectedProduct && (
+              <div className="preview-box">
+                {productMap[selectedProduct.id]} - Precio {money(selectedProduct.price)} - Stock {selectedProduct.stock} - {selectedProduct.type}
+                {forcedCreditSurcharge && (
+                  <span className="preview-breakdown">
+                    Subtotal {money(salePricing.subtotal)} + recargo {salePricing.creditSurchargePercent}% ({money(salePricing.creditSurchargeAmount)}) = {money(salePricing.total)}
+                  </span>
+                )}
+              </div>
+            )}
+          </form>
+        </Modal>
+      )}
+
+      {voidingSale && (
+        <Modal
+          title="Anular venta"
+          onClose={() => setVoidingSale(null)}
+          footer={
+            <>
+              <button className="btn" type="button" onClick={() => setVoidingSale(null)}>Cancelar</button>
+              <button className="btn btn-danger-solid" type="submit" form={voidFormId} disabled={saving}>
+                {saving ? 'Anulando...' : 'Anular venta'}
+              </button>
+            </>
+          }
+        >
+          <form id={voidFormId} onSubmit={confirmVoid}>
+            <div className="system-card system-card-warning compact-card">
+              Esta accion no borra la venta: la marca como anulada, revierte stock si corresponde, anula el movimiento de caja abierto y deja auditoria.
+            </div>
+            <FormGrid
+              value={{ reason: voidReason }}
+              onChange={(_name, value) => setVoidReason(value)}
+              fields={[{ name: 'reason', label: 'Motivo obligatorio', type: 'textarea', required: true, rows: 4 }]}
+            />
+          </form>
+        </Modal>
+      )}
+    </section>
+  )
+}

@@ -1,0 +1,49 @@
+import React from 'react'
+import { CrudPage } from '../common/CrudPage.jsx'
+import { useLookups } from '../../hooks/useLookups.js'
+import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
+
+export function WaitingQueuePage() {
+  const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
+
+  const columns = [
+    { key: 'clientId', label: 'Cliente', render: (row) => clientMap[row.clientId] || '-' },
+    { key: 'patientId', label: 'Paciente', render: (row) => patientMap[row.patientId] || '-' },
+    { key: 'service', label: 'Servicio' },
+    { key: 'priority', label: 'Prioridad' },
+    { key: 'professional', label: 'Profesional' },
+    { key: 'status', label: 'Estado' },
+  ]
+
+  const exportColumns = patientContactExportColumns({
+    clientById,
+    patientById,
+    baseColumns: [
+      ...columns,
+      { key: 'notes', label: 'Notas' },
+    ],
+  })
+
+  return (
+    <CrudPage
+      collectionName="waitingQueue"
+      eyebrow="Recepción"
+      title="Cola de espera"
+      description="Ingreso rápido de pacientes que esperan atención, guardia o derivación. Exportación útil para recepción y pase interno."
+      createLabel="Agregar a cola"
+      searchFields={['service', 'priority', 'professional', 'status', 'notes']}
+      exportColumns={exportColumns}
+      initialValues={{ clientId: '', patientId: '', service: '', priority: 'Media', professional: '', status: 'En espera', notes: '' }}
+      fields={[
+        { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
+        { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions, required: true },
+        { name: 'service', label: 'Servicio / motivo' },
+        { name: 'priority', label: 'Prioridad', type: 'select', options: ['Baja', 'Media', 'Alta', 'Urgente'] },
+        { name: 'professional', label: 'Profesional' },
+        { name: 'status', label: 'Estado', type: 'select', options: ['En espera', 'Llamado', 'En atención', 'Finalizado', 'Cancelado'] },
+        { name: 'notes', label: 'Notas', type: 'textarea' },
+      ]}
+      columns={columns}
+    />
+  )
+}

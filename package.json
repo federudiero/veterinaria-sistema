@@ -1,0 +1,36 @@
+{
+  "name": "sistema-veterinaria-comercial",
+  "private": true,
+  "version": "6.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "safe-install": "npm install --ignore-scripts --no-audit --fund=false",
+    "safe-ci": "npm ci --ignore-scripts --no-audit --fund=false",
+    "clean": "node scripts/clean.mjs",
+    "check:release": "node scripts/check-release.mjs",
+    "build:production": "npm run check:release && npm run check:deploy && vite build --mode production",
+    "preview:production": "vite preview --host 0.0.0.0",
+    "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
+    "check:deploy": "node scripts/check-deploy.mjs",
+    "qa:release": "npm run check:release && npm run build",
+    "build:hosting": "npm run check:deploy && vite build --mode production",
+    "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes",
+    "deploy:hosting": "npm run build:hosting && firebase deploy --only hosting",
+    "deploy:all": "npm run build:hosting && firebase deploy --only firestore:rules,firestore:indexes,hosting",
+    "firebase:emulators": "firebase emulators:start"
+  },
+  "dependencies": {
+    "firebase": "11.6.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-router-dom": "7.5.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "4.3.4",
+    "vite": "6.3.5"
+  },
+  "description": "Sistema veterinaria comercial: Fase 6 deploy comercial, App Check, QA final, dominio, Hosting y manuales de cliente"
+}
