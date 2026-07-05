@@ -13,10 +13,11 @@ export function ListToolbar({
   statusOptions = [],
   onClearFilters,
   children,
+  extraActive = false,
 }) {
   const hasDateFilters = typeof onDateFromChange === 'function' || typeof onDateToChange === 'function'
   const hasStatusFilter = typeof onStatusChange === 'function' && statusOptions.length > 0
-  const canClear = Boolean(query || dateFrom || dateTo || status)
+  const canClear = Boolean(query || dateFrom || dateTo || status || extraActive)
 
   return (
     <div className="list-toolbar">

@@ -44,7 +44,23 @@ service cloud.firestore {
       );
     }
 
+    function isPortalClient(tenantId) {
+      return userIsActive(tenantId) && userData(tenantId).role == 'cliente';
+    }
 
+    function portalClientIds(tenantId) {
+      return userData(tenantId).clientIds is list
+        ? userData(tenantId).clientIds
+        : (userData(tenantId).clientId is string ? [userData(tenantId).clientId] : []);
+    }
+
+    function ownsClientDoc(tenantId, clientId) {
+      return isPortalClient(tenantId) && clientId in portalClientIds(tenantId);
+    }
+
+    function ownsClientData(tenantId) {
+      return isPortalClient(tenantId) && resource.data.clientId in portalClientIds(tenantId);
+    }
 
     function productStockOnlyUpdate() {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly([
@@ -71,6 +87,8 @@ service cloud.firestore {
           'role',
           'active',
           'permissions',
+          'clientId',
+          'clientIds',
           'accessRequestedAt',
           'createdAt',
           'updatedAt',
@@ -101,6 +119,12 @@ service cloud.firestore {
         allow write: if hasPermission(tenantId, 'configuracion.write');
       }
 
+      match /tags/{docId} {
+        allow read: if userIsActive(tenantId);
+        allow write: if hasPermission(tenantId, 'configuracion.write');
+      }
+
+
       match /auditLogs/{docId} {
         allow read: if hasPermission(tenantId, 'auditoria.read');
         allow create: if userIsActive(tenantId);
@@ -108,32 +132,32 @@ service cloud.firestore {
       }
 
       match /clients/{docId} {
-        allow read: if hasPermission(tenantId, 'clientes.read');
+        allow read: if hasPermission(tenantId, 'clientes.read') || ownsClientDoc(tenantId, docId);
         allow write: if hasPermission(tenantId, 'clientes.write');
       }
 
       match /patients/{docId} {
-        allow read: if hasPermission(tenantId, 'pacientes.read');
+        allow read: if hasPermission(tenantId, 'pacientes.read') || ownsClientData(tenantId);
         allow write: if hasPermission(tenantId, 'pacientes.write');
       }
 
       match /clinicalRecords/{docId} {
-        allow read: if hasPermission(tenantId, 'clinica.read');
+        allow read: if hasPermission(tenantId, 'clinica.read') || ownsClientData(tenantId);
         allow write: if hasPermission(tenantId, 'clinica.write');
       }
 
       match /vaccines/{docId} {
-        allow read: if hasPermission(tenantId, 'clinica.read');
+        allow read: if hasPermission(tenantId, 'clinica.read') || ownsClientData(tenantId);
         allow write: if hasPermission(tenantId, 'clinica.write');
       }
 
       match /prescriptions/{docId} {
-        allow read: if hasPermission(tenantId, 'clinica.read');
+        allow read: if hasPermission(tenantId, 'clinica.read') || ownsClientData(tenantId);
         allow write: if hasPermission(tenantId, 'clinica.write');
       }
 
       match /appointments/{docId} {
-        allow read: if hasPermission(tenantId, 'agenda.read');
+        allow read: if hasPermission(tenantId, 'agenda.read') || ownsClientData(tenantId);
         allow write: if hasPermission(tenantId, 'agenda.write');
       }
 
@@ -144,7 +168,7 @@ service cloud.firestore {
 
       match /shifts/{docId} {
         allow read: if hasPermission(tenantId, 'agenda.read') || hasPermission(tenantId, 'ventas.read') || hasPermission(tenantId, 'caja.read') || hasPermission(tenantId, 'compras.read');
-        allow write: if hasPermission(tenantId, 'agenda.write') || hasPermission(tenantId, 'caja.close');
+        allow write: if hasPermission(tenantId, 'caja.close');
       }
 
       match /reminders/{docId} {

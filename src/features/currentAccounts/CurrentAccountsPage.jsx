@@ -1,4 +1,4 @@
-import React, { useId, useMemo, useState } from 'react'
+import React, { useEffect, useId, useMemo, useState } from 'react'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
 import { Modal } from '../../components/ui/Modal.jsx'
@@ -15,7 +15,7 @@ import { dateLabel, money, numberValue, sumBy, todayISO } from '../../utils/form
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
-import { filterOpenShiftsForUser, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
+import { findOpenDailyCashSession, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
 
 const paymentInitial = { date: todayISO(), shiftId: '', amount: 0, method: 'Efectivo' }
 
@@ -35,7 +35,7 @@ export function CurrentAccountsPage() {
   const paymentFormId = useId()
   const manualFormId = useId()
   const feedback = useFeedback()
-  const { hasPermission, user } = useAuth()
+  const { hasPermission } = useAuth()
   const canWrite = hasPermission('caja.write')
 
   const activeRows = accounts.items.filter((item) => item.status !== 'Anulado')
@@ -67,11 +67,17 @@ export function CurrentAccountsPage() {
   ]
 
   const currentPaymentBalance = useMemo(() => paymentRow ? pendingAmount(paymentRow) : 0, [paymentRow])
-  const paymentShiftOptions = useMemo(() => filterOpenShiftsForUser(shifts.items, user, paymentForm.date)
-    .map((item) => ({
-      value: item.id,
-      label: shiftOptionLabel(item),
-    })), [paymentForm.date, shifts.items, user])
+  const paymentShift = useMemo(() => findOpenDailyCashSession(shifts.items, paymentForm.date), [paymentForm.date, shifts.items])
+  const paymentShiftOptions = useMemo(() => paymentShift ? [{
+    value: paymentShift.id,
+    label: shiftOptionLabel(paymentShift),
+  }] : [], [paymentShift])
+
+
+  useEffect(() => {
+    if (!paymentRow || paymentForm.shiftId || !paymentShiftOptions.length) return
+    setPaymentForm((current) => ({ ...current, shiftId: paymentShiftOptions[0].value }))
+  }, [paymentForm.shiftId, paymentRow, paymentShiftOptions])
 
   function openPayment(row) {
     setPaymentRow(row)
@@ -79,7 +85,7 @@ export function CurrentAccountsPage() {
   }
 
   function handlePaymentChange(name, value) {
-    setPaymentForm((current) => ({ ...current, [name]: value }))
+    setPaymentForm((current) => ({ ...current, [name]: value, ...(name === 'date' ? { shiftId: '' } : {}) }))
   }
 
   function handleManualChange(name, value) {
@@ -89,9 +95,8 @@ export function CurrentAccountsPage() {
   async function savePayment(event) {
     event.preventDefault()
     if (!canWrite || !paymentRow) return
-    const paymentShift = shifts.items.find((item) => item.id === paymentForm.shiftId)
     if (!paymentShift) {
-      feedback.warning('Seleccioná un turno de caja abierto/asignado para registrar el pago.')
+      feedback.warning('No hay caja del día abierta. Abrí la caja diaria para poder registrar el pago.')
       return
     }
     setSaving(true)
@@ -99,7 +104,7 @@ export function CurrentAccountsPage() {
       await repository.collectCurrentAccountTransaction(paymentRow, {
         date: paymentForm.date,
         shiftId: paymentShift.id,
-        shiftName: paymentShift.name || '',
+        shiftName: 'Caja del día',
         shiftDate: paymentShift.date || paymentForm.date,
         ...shiftUserPayload(paymentShift),
         amount: numberValue(paymentForm.amount),
@@ -148,7 +153,7 @@ export function CurrentAccountsPage() {
       <SectionHeader
         eyebrow="Administración"
         title="Cuentas corrientes"
-        description="Deudas, pagos parciales y cancelaciones vinculadas a caja y ventas. Los pagos se registran de forma transaccional."
+        description="Deudas, pagos parciales y cancelaciones. Al cobrar, el ingreso queda asociado a la caja abierta del día."
         actions={
           <>
             <ExportButtons
@@ -218,11 +223,15 @@ export function CurrentAccountsPage() {
               onChange={handlePaymentChange}
               fields={[
                 { name: 'date', label: 'Fecha de pago', type: 'date', required: true },
-                { name: 'shiftId', label: 'Turno de caja abierto', type: 'select', options: paymentShiftOptions, required: true, hint: paymentShiftOptions.length ? 'El cobro queda asociado a este turno de caja.' : 'No hay turnos de caja abiertos/asignados para la fecha seleccionada.' },
                 { name: 'amount', label: 'Importe a cobrar', type: 'number', required: true },
-                { name: 'method', label: 'Método', type: 'select', options: ['Efectivo', 'Transferencia', 'Débito', 'Crédito', 'Otro'] },
+                { name: 'method', label: 'Método', type: 'select', options: ['Efectivo', 'Transferencia', 'Debito', 'Credito', 'Otro'] },
               ]}
             />
+            {!paymentShift && (
+              <div className="system-card system-card-warning compact-card">
+                <strong>No hay caja del día abierta.</strong> Abrí la caja diaria para poder registrar este cobro.
+              </div>
+            )}
           </form>
         </Modal>
       )}

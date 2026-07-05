@@ -48,6 +48,7 @@ export function PatientsPage() {
         { name: 'status', label: 'Estado', type: 'select', options: ['Activo', 'Inactivo', 'Fallecido'] },
         { name: 'alerts', label: 'Alertas clínicas', type: 'textarea' },
       ]}
+      enableTags
       columns={columns}
     />
   )

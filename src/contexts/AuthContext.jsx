@@ -32,6 +32,8 @@ function buildFirebaseProfile(firebaseUser, profile = {}, status = 'active') {
     role: profile.role || (status === 'missing' ? 'sin_perfil' : 'pendiente'),
     active: profile.active === true,
     permissions: Array.isArray(profile.permissions) ? profile.permissions : [],
+    clientId: profile.clientId || '',
+    clientIds: Array.isArray(profile.clientIds) ? profile.clientIds : (profile.clientId ? [profile.clientId] : []),
     profileStatus: status,
     profileExists: status !== 'missing',
     createdAt: profile.createdAt || null,
@@ -109,6 +111,8 @@ export function AuthProvider({ children }) {
       role: 'pendiente',
       active: false,
       permissions: [],
+      clientId: '',
+      clientIds: [],
       accessRequestedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }

@@ -50,6 +50,7 @@ export function WaitingQueuePage() {
         { name: 'status', label: 'Estado', type: 'select', options: ['En espera', 'Llamado', 'En atención', 'Finalizado', 'Cancelado'] },
         { name: 'notes', label: 'Notas', type: 'textarea' },
       ]}
+      enableTags
       columns={columns}
     />
   )

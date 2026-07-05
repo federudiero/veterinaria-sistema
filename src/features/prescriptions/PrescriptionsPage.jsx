@@ -55,6 +55,7 @@ export function PrescriptionsPage() {
         { name: 'status', label: 'Estado', type: 'select', options: ['Activa', 'Finalizada', 'Anulada'] },
         { name: 'notes', label: 'Notas internas', type: 'textarea' },
       ]}
+      enableTags
       columns={columns}
     />
   )

@@ -21,7 +21,7 @@ import { auth, db } from '../firebase/client.js'
 import { TENANT_ID } from '../firebase/config.js'
 import { seedData } from '../../data/seedData.js'
 import { EXPORT_BATCH_SIZE, MAX_EXPORT_ROWS, MAX_LIST_LIMIT } from '../../config/performance.js'
-import { buildSearchPayload, normalizeSearchText } from '../../utils/search.js'
+import { buildSearchPayload, matchesSearch, normalizeSearchText, primarySearchToken } from '../../utils/search.js'
 import { calculateSalePricing } from '../../utils/salesPricing.js'
 
 function assertDb() {
@@ -58,7 +58,13 @@ const numberValue = (value) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-const todayISO = () => new Date().toISOString().slice(0, 10)
+const todayISO = () => {
+  const value = new Date()
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 const nowISO = () => new Date().toISOString()
 
 function withSearchIndex(payload) {
@@ -73,14 +79,23 @@ function actorPayload() {
   }
 }
 
+function isSharedDailyCashSession(shift = {}) {
+  return shift.cashSessionScope === 'sharedDaily' || shift.sharedDaily === true || String(shift.id || shift.shiftId || '').startsWith('daily_')
+}
+
+function dailyCashSessionDocumentId(date = '') {
+  return `daily_${date || todayISO()}`
+}
+
 function shiftPayload(input = {}) {
   const resolvedShiftId = input.shiftId || input.id || ''
+  const isShared = isSharedDailyCashSession({ ...input, id: resolvedShiftId })
   return {
     shiftId: resolvedShiftId,
-    shiftName: input.shiftName || input.name || (resolvedShiftId ? 'Sin nombre' : 'Sin turno'),
+    shiftName: isShared ? 'Caja del día' : input.shiftName || input.name || (resolvedShiftId ? 'Caja sin nombre' : 'Sin caja'),
     shiftDate: input.shiftDate || input.date || todayISO(),
-    veterinarianIds: Array.isArray(input.veterinarianIds) ? input.veterinarianIds : [],
-    veterinarianNames: Array.isArray(input.veterinarianNames) ? input.veterinarianNames : [],
+    veterinarianIds: isShared ? [] : Array.isArray(input.veterinarianIds) ? input.veterinarianIds : [],
+    veterinarianNames: isShared ? [] : Array.isArray(input.veterinarianNames) ? input.veterinarianNames : [],
   }
 }
 
@@ -88,15 +103,15 @@ async function assertOpenShift(transaction, input = {}) {
   if (!input.shiftId) return null
   const ref = docRef('shifts', input.shiftId)
   const snap = await transaction.get(ref)
-  if (!snap.exists()) throw new Error('El turno seleccionado ya no existe.')
+  if (!snap.exists()) throw new Error('La caja seleccionada ya no existe.')
   const shift = snap.data()
-  if (shift.status === 'Cerrado') throw new Error('No se puede operar sobre un turno cerrado.')
+  if (shift.status === 'Cerrado') throw new Error('No se puede operar sobre una caja cerrada.')
   return { id: snap.id, ...shift }
 }
 
 async function assertUserCanOperateShift(transaction, shift) {
   const actor = actorPayload()
-  if (!shift?.id) throw new Error('Seleccioná un turno de caja abierto.')
+  if (!shift?.id) throw new Error('Seleccioná una caja abierta.')
   if (!actor.userUid || actor.userUid === 'system') return shift
 
   const profileSnap = await transaction.get(docRef('users', actor.userUid))
@@ -104,17 +119,18 @@ async function assertUserCanOperateShift(transaction, shift) {
   const profile = profileSnap.data()
   if (profile.active !== true) throw new Error('Tu usuario no está habilitado para operar caja.')
   if (profile.role === 'admin') return shift
+  if (isSharedDailyCashSession(shift)) return shift
 
   const assignedIds = Array.isArray(shift.veterinarianIds) ? shift.veterinarianIds : []
   if (!assignedIds.includes(actor.userUid) && !assignedIds.includes(profile.email)) {
-    throw new Error('Tu usuario no está asignado al turno de caja seleccionado.')
+    throw new Error('Tu usuario no está asignado a la caja seleccionada.')
   }
 
   return shift
 }
 
 async function assertRequiredOpenShift(transaction, input = {}) {
-  if (!input.shiftId) throw new Error('Seleccioná un turno de caja abierto antes de operar.')
+  if (!input.shiftId) throw new Error('Seleccioná una caja abierta antes de operar.')
   const shift = await assertOpenShift(transaction, input)
   return assertUserCanOperateShift(transaction, shift)
 }
@@ -145,9 +161,18 @@ function safeLimit(value) {
   return Math.min(Math.max(Number(value || MAX_LIST_LIMIT), 1), MAX_LIST_LIMIT)
 }
 
+function hasArrayContainsFilter(options = {}) {
+  return Array.isArray(options.where) && options.where.some((filter) => filter?.op === 'array-contains')
+}
+
+function shouldApplySearchOnClient(options = {}) {
+  return Boolean(options.searchTerm && hasArrayContainsFilter(options))
+}
+
 function buildCollectionConstraints(options = {}, { includeLimit = true } = {}) {
   const constraints = []
   const normalizedTerm = normalizeSearchText(options.searchTerm)
+  const searchToken = shouldApplySearchOnClient(options) ? '' : primarySearchToken(normalizedTerm)
 
   if (Array.isArray(options.where)) {
     options.where.forEach((filter) => {
@@ -157,8 +182,8 @@ function buildCollectionConstraints(options = {}, { includeLimit = true } = {}) 
     })
   }
 
-  if (normalizedTerm) {
-    constraints.push(where('searchTokens', 'array-contains', normalizedTerm))
+  if (searchToken) {
+    constraints.push(where('searchTokens', 'array-contains', searchToken))
   }
 
   if (options.orderByField) {
@@ -182,7 +207,10 @@ function buildCollectionQuery(collectionName, options = {}) {
 
 export async function fetchCollectionPage(collectionName, options = {}) {
   const snapshot = await getDocs(buildCollectionQuery(collectionName, options))
-  const rows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
+  const rawRows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
+  const rows = shouldApplySearchOnClient(options)
+    ? rawRows.filter((item) => matchesSearch(item, options.searchTerm))
+    : rawRows
   const pageSize = safeLimit(options.limitCount)
 
   return {
@@ -217,6 +245,7 @@ export async function fetchCollectionForExport(collectionName, options = {}) {
 export async function getCollectionCount(collectionName, options = {}) {
   const constraints = []
   const normalizedTerm = normalizeSearchText(options.searchTerm)
+  const searchToken = shouldApplySearchOnClient(options) ? '' : primarySearchToken(normalizedTerm)
 
   if (Array.isArray(options.where)) {
     options.where.forEach((filter) => {
@@ -226,8 +255,8 @@ export async function getCollectionCount(collectionName, options = {}) {
     })
   }
 
-  if (normalizedTerm) {
-    constraints.push(where('searchTokens', 'array-contains', normalizedTerm))
+  if (searchToken) {
+    constraints.push(where('searchTokens', 'array-contains', searchToken))
   }
 
   const snapshot = await getCountFromServer(query(collectionRef(collectionName), ...constraints))
@@ -288,6 +317,58 @@ export async function setDocument(collectionName, id, payload) {
   }
   await batch.commit()
   return id
+}
+
+
+export async function ensureDailyCashSession(input = {}) {
+  assertDb()
+  const date = input.date || todayISO()
+  const id = dailyCashSessionDocumentId(date)
+  const ref = docRef('shifts', id)
+  let result = null
+
+  await runTransaction(db, async (transaction) => {
+    const existing = await transaction.get(ref)
+    if (existing.exists()) {
+      result = { id, ...existing.data(), existing: true }
+      return
+    }
+
+    const actor = actorPayload()
+    const payload = withSearchIndex({
+      date,
+      name: 'Caja del día',
+      cashSessionScope: 'sharedDaily',
+      sharedDaily: true,
+      startTime: input.startTime || '',
+      endTime: input.endTime || '',
+      veterinarianIds: [],
+      veterinarianNames: [],
+      cashierIds: [],
+      cashierNames: [],
+      responsibleUserIds: [],
+      responsibleUserNames: [],
+      openedBy: input.openedBy || actor.userUid,
+      openedByName: input.openedByName || actor.userEmail,
+      status: 'Abierto',
+      notes: input.notes || 'Caja diaria compartida para todo el negocio.',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      ...actor,
+    })
+
+    transaction.set(ref, payload)
+    setAudit(transaction, auditPayload({
+      module: 'shifts',
+      action: 'cash.daily.ensure',
+      entityId: id,
+      summary: `Apertura de caja diaria compartida ${date}`,
+      after: cleanPayload({ ...payload, id }),
+    }))
+    result = { id, ...payload, created: true }
+  })
+
+  return result
 }
 
 export async function updateDocument(collectionName, id, payload) {
@@ -410,6 +491,8 @@ export async function createSaleTransaction(input) {
       paymentStatus: paid ? 'Pagada' : 'Pendiente',
       status: 'Activa',
       notes: input.notes || '',
+      tagIds: Array.isArray(input.tagIds) ? input.tagIds : [],
+      tagNames: Array.isArray(input.tagNames) ? input.tagNames : [],
       cashMovementId: cashRef?.id || '',
       currentAccountId: accountRef?.id || '',
       stockMovementIds: isStockProduct ? [stockMovementRef.id] : [],
@@ -570,6 +653,8 @@ export async function createReminderSaleTransaction(input) {
       paymentStatus: paid ? 'Pagada' : 'Pendiente',
       status: 'Activa',
       notes: input.notes || '',
+      tagIds: Array.isArray(input.tagIds) ? input.tagIds : [],
+      tagNames: Array.isArray(input.tagNames) ? input.tagNames : [],
       origin: 'recordatorio',
       sourceReminderId: input.reminderId || '',
       cashMovementId: cashRef?.id || '',
@@ -1119,13 +1204,12 @@ export async function createCashMovementTransaction(input) {
 
 export async function closeCashTransaction(input = {}) {
   assertDb()
-  if (!input.shiftId) throw new Error('Seleccioná un turno de caja para cerrar.')
+  if (!input.shiftId) throw new Error('Seleccioná una caja para cerrar.')
   const date = input.date || todayISO()
   const openConstraints = [where('closed', '==', false), where('shiftId', '==', input.shiftId)]
   openConstraints.push(limit(450))
   const openQuery = query(collectionRef('cashMovements'), ...openConstraints)
   const openSnapshot = await getDocs(openQuery)
-  if (openSnapshot.empty) throw new Error('No hay movimientos abiertos para cerrar.')
   if (openSnapshot.size >= 450) throw new Error('Hay demasiados movimientos abiertos. Cerrá por tandas o pedí una versión con cierre server-side.')
 
   const closureRef = docRef('cashClosures', `closure_${date}_${input.shiftId}`)
@@ -1143,8 +1227,6 @@ export async function closeCashTransaction(input = {}) {
       }
     }
 
-    if (movementDocs.length === 0) throw new Error('Los movimientos abiertos ya fueron cerrados por otra operación.')
-
     const income = movementDocs
       .filter((item) => item.type === 'Ingreso')
       .reduce((acc, item) => acc + numberValue(item.amount), 0)
@@ -1157,6 +1239,9 @@ export async function closeCashTransaction(input = {}) {
       return acc
     }, {})
 
+    const actor = actorPayload()
+    const isSharedDailyClosure = isSharedDailyCashSession({ ...input, ...(shift || {}), id: input.shiftId })
+
     transaction.set(closureRef, withSearchIndex({
       date,
       income,
@@ -1166,11 +1251,14 @@ export async function closeCashTransaction(input = {}) {
       movementIds: movementDocs.map((item) => item.id),
       movementCount: movementDocs.length,
       status: 'Cerrado',
-      closureType: 'shift',
+      closureType: isSharedDailyClosure ? 'daily' : 'shift',
+      closedAt: serverTimestamp(),
+      closedBy: actor.userUid,
+      closedByName: input.closedByName || actor.userEmail,
       ...shiftPayload({ ...input, ...(shift || {}) }),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-      ...actorPayload(),
+      ...actor,
     }))
 
     movementDocs.forEach((item) => {
@@ -1196,7 +1284,8 @@ export async function closeCashTransaction(input = {}) {
       transaction.update(docRef('shifts', input.shiftId), {
         status: 'Cerrado',
         closedAt: serverTimestamp(),
-        closedBy: actorPayload().userUid,
+        closedBy: actor.userUid,
+        closedByName: input.closedByName || actor.userEmail,
         shiftClosureId: closureRef.id,
         updatedAt: serverTimestamp(),
       })
@@ -1213,20 +1302,20 @@ export async function closeGlobalCashTransaction(input = {}) {
   const shiftSnapshot = await getDocs(query(collectionRef('shifts'), where('date', '==', date), limit(50)))
   const closures = closuresSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
   const shifts = shiftSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
-  const openShifts = shifts.filter((item) => item.status !== 'Cerrado')
-  if (openShifts.length) throw new Error('No se puede cerrar el día: hay turnos de caja abiertos.')
+  const openShifts = shifts.filter((item) => isSharedDailyCashSession(item) && item.status !== 'Cerrado')
+  if (openShifts.length) throw new Error('No se puede cerrar el día: hay cajas abiertas.')
 
   const openMovementsSnapshot = await getDocs(query(collectionRef('cashMovements'), where('date', '==', date), where('closed', '==', false), limit(450)))
   const openMovements = openMovementsSnapshot.docs
     .map((item) => ({ id: item.id, ...item.data() }))
     .filter((item) => item.status !== 'Anulado')
-  if (openMovements.length) throw new Error('No se puede cerrar el día: quedan movimientos de caja abiertos o sin cierre de turno.')
-  if (!closures.length) throw new Error('No hay cierres de turno para consolidar.')
+  if (openMovements.length) throw new Error('No se puede cerrar el día: quedan movimientos de caja abiertos o sin cierre de caja.')
+  if (!closures.length) throw new Error('No hay cierres de caja para consolidar.')
 
   const closureRef = docRef('globalCashClosures', `global_${date}`)
   await runTransaction(db, async (transaction) => {
     const existing = await transaction.get(closureRef)
-    if (existing.exists()) throw new Error(`Ya existe un cierre global para ${date}.`)
+    if (existing.exists()) throw new Error(`Ya existe un cierre del día para ${date}.`)
     const income = closures.reduce((acc, item) => acc + numberValue(item.income), 0)
     const expenses = closures.reduce((acc, item) => acc + numberValue(item.expenses), 0)
     const byMethod = closures.reduce((acc, item) => {
@@ -1261,7 +1350,7 @@ export async function closeGlobalCashTransaction(input = {}) {
       module: 'globalCashClosures',
       action: 'cash.global.close.transaction',
       entityId: closureRef.id,
-      summary: `Cierre global ${date}: neto ${income - expenses}`,
+      summary: `Cierre del día ${date}: neto ${income - expenses}`,
       after: { income, expenses, net: income - expenses, closureCount: closures.length },
       severity: 'warning',
     }))

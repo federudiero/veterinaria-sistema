@@ -34,8 +34,9 @@ export function Pagination({
   return (
     <div className="pagination-bar">
       <div className="pagination-info">
-        <strong>{serverPaged ? total : total}</strong> registro{total === 1 ? '' : 's'} en esta vista
+        <strong>{total}</strong> registro{total === 1 ? '' : 's'} {serverPaged ? 'en esta página' : 'en esta vista'}
         {serverPaged ? <span> · paginación por servidor</span> : null}
+        {serverPaged && hasNextPage ? <span> · hay más registros</span> : null}
         {!serverPaged && typeof rawTotal === 'number' && rawTotal !== total ? <span> · {rawTotal} cargados</span> : null}
         {limit ? <span> · lectura máx. {limit}</span> : null}
       </div>

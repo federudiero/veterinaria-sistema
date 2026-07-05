@@ -1,4 +1,4 @@
-import React, { useId, useMemo, useState } from 'react'
+import React, { useEffect, useId, useMemo, useState } from 'react'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
 import { Modal } from '../../components/ui/Modal.jsx'
@@ -21,7 +21,10 @@ import {
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
-import { filterOpenShiftsForUser, isUserAssignedToShift, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
+import { findOpenDailyCashSession, isSharedDailyCashSession, shiftOptionLabel, shiftUserPayload, userOperationId, userOperationName } from '../../utils/shifts.js'
+import { TagFilter } from '../../components/tags/TagFilter.jsx'
+import { TagList } from '../../components/tags/TagBadge.jsx'
+import { tagNamesFromIds, tagOptionsForScope, tagsForScope } from '../../data/tagScopes.js'
 
 const paymentMethods = ['Efectivo', 'Transferencia', 'Debito', 'Credito', 'Cuenta corriente']
 
@@ -37,6 +40,7 @@ const initialForm = {
   paid: true,
   dueDate: '',
   notes: '',
+  tagIds: [],
 }
 
 function uniqueOptions(options) {
@@ -46,12 +50,12 @@ function uniqueOptions(options) {
 export function SalesPage() {
   const [shiftFilter, setShiftFilter] = useState('')
   const [methodFilter, setMethodFilter] = useState('')
-  const [vetFilter, setVetFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
   const extraWhere = useMemo(() => [
     ...(shiftFilter ? [{ field: 'shiftId', op: '==', value: shiftFilter }] : []),
     ...(methodFilter ? [{ field: 'paymentMethod', op: '==', value: methodFilter }] : []),
-    ...(vetFilter ? [{ field: 'veterinarianIds', op: 'array-contains', value: vetFilter }] : []),
-  ], [methodFilter, shiftFilter, vetFilter])
+    ...(tagFilter ? [{ field: 'tagIds', op: 'array-contains', value: tagFilter }] : []),
+  ], [methodFilter, shiftFilter, tagFilter])
   const sales = useServerCollectionControls('sales', {
     dateField: 'date',
     statusField: 'status',
@@ -63,38 +67,49 @@ export function SalesPage() {
   })
   const products = useCollection('products', { limitCount: 300, orderByField: 'name', orderDirection: 'asc' })
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
+  const tagsCollection = useCollection('tags', { limitCount: 250, orderByField: 'name', orderDirection: 'asc' })
   const { clientOptions, patientOptions, clientMap, patientMap, productOptions, productMap, clientById, patientById } = useLookups()
   const [modalOpen, setModalOpen] = useState(false)
   const [voidingSale, setVoidingSale] = useState(null)
   const [voidReason, setVoidReason] = useState('')
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const [createdCashSession, setCreatedCashSession] = useState(null)
   const saleFormId = useId()
   const voidFormId = useId()
   const feedback = useFeedback()
   const { hasPermission, user } = useAuth()
   const canWrite = hasPermission('ventas.write')
-  const isAdmin = user?.role === 'admin'
+  const canManageCashSession = hasPermission('caja.close')
 
-  const shiftOptions = useMemo(() => shifts.items.map((item) => ({
-    value: item.id,
-    label: `${dateLabel(item.date)} - ${item.name || 'Sin nombre'} (${item.status || 'Abierto'}) · ${item.veterinarianNames?.join(', ') || 'Sin responsable'}`,
-  })), [shifts.items])
+  const visibleCashSessions = useMemo(() => [
+    ...shifts.items,
+    ...(createdCashSession ? [createdCashSession] : []),
+  ].filter(Boolean), [createdCashSession, shifts.items])
 
-  const vetOptions = useMemo(() => uniqueOptions(shifts.items.flatMap((item) => (item.veterinarianIds || []).map((id, index) => ({
-    value: id,
-    label: item.veterinarianNames?.[index] || id,
-  })))), [shifts.items])
-
-  const openShiftOptionsForSale = useMemo(() => filterOpenShiftsForUser(shifts.items, user, form.date)
+  const shiftOptions = useMemo(() => visibleCashSessions
+    .filter((item) => isSharedDailyCashSession(item))
     .map((item) => ({
       value: item.id,
-      label: shiftOptionLabel(item),
-    })), [form.date, shifts.items, user])
+      label: `${dateLabel(item.date)} - ${shiftOptionLabel(item)}`,
+    })), [visibleCashSessions])
+
+  const saleTags = useMemo(() => tagsForScope(tagsCollection.items, 'sales'), [tagsCollection.items])
+  const saleTagOptions = useMemo(() => tagOptionsForScope(tagsCollection.items, 'sales'), [tagsCollection.items])
+
+  const openShiftOptionsForSale = useMemo(() => {
+    const shift = findOpenDailyCashSession(visibleCashSessions, form.date)
+    return shift ? [{ value: shift.id, label: shiftOptionLabel(shift) }] : []
+  }, [form.date, visibleCashSessions])
+
+  useEffect(() => {
+    if (form.shiftId || !openShiftOptionsForSale.length) return
+    setForm((current) => ({ ...current, shiftId: openShiftOptionsForSale[0].value }))
+  }, [form.shiftId, openShiftOptionsForSale])
 
   const selectedShift = useMemo(
-    () => shifts.items.find((item) => item.id === form.shiftId),
-    [form.shiftId, shifts.items],
+    () => visibleCashSessions.find((item) => item.id === form.shiftId) || null,
+    [form.shiftId, visibleCashSessions],
   )
 
   const activeSales = sales.items.filter((item) => item.status !== 'Anulada')
@@ -119,7 +134,7 @@ export function SalesPage() {
   const forcedCurrentAccount = form.paymentMethod === 'Cuenta corriente'
   const forcedCreditSurcharge = isCreditPaymentMethod(form.paymentMethod)
   const totalsByShift = activeSales.reduce((acc, item) => {
-    const key = item.shiftName || (item.shiftId ? 'Sin nombre' : 'Sin turno')
+    const key = item.shiftName || (item.shiftId ? 'Caja sin nombre' : 'Sin caja')
     acc[key] = (acc[key] || 0) + numberValue(item.total)
     return acc
   }, {})
@@ -131,7 +146,7 @@ export function SalesPage() {
 
   const columns = [
     { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
-    { key: 'shiftName', label: 'Turno', render: (row) => row.shiftName || 'Sin turno' },
+    { key: 'shiftName', label: 'Caja', render: (row) => row.shiftName || 'Sin caja' },
     { key: 'clientId', label: 'Cliente', render: (row) => clientMap[row.clientId] || row.clientName || '-' },
     { key: 'patientId', label: 'Paciente', render: (row) => patientMap[row.patientId] || row.patientName || '-' },
     { key: 'items', label: 'Detalle', render: (row) => row.items?.map((item) => `${item.name} x${item.qty}`).join(', ') || '-' },
@@ -139,12 +154,12 @@ export function SalesPage() {
     { key: 'paymentMethod', label: 'Pago', render: (row) => paymentLabelWithSurcharge(row.paymentMethod, row.creditSurchargePercent) },
     { key: 'total', label: 'Total', render: (row) => money(row.total) },
     { key: 'paymentStatus', label: 'Estado', render: (row) => row.status === 'Anulada' ? 'Anulada' : row.paid ? 'Pagada' : 'Pendiente' },
+    { key: 'tagIds', label: 'Etiquetas', render: (row) => <TagList tagIds={row.tagIds} tags={saleTags} /> },
   ]
 
   const exportColumns = [
     ...columns,
-    { key: 'shiftDate', label: 'Fecha turno' },
-    { key: 'veterinarianNames', label: 'Responsables turno', exportValue: (row) => row.veterinarianNames?.join(', ') || '-' },
+    { key: 'shiftDate', label: 'Fecha caja' },
     { key: 'subtotal', label: 'Subtotal', exportValue: (row) => money(row.subtotal || row.total) },
     { key: 'creditSurchargePercent', label: 'Recargo credito %', exportValue: (row) => row.creditSurchargePercent ? `${row.creditSurchargePercent}%` : '-' },
     { key: 'creditSurchargeAmount', label: 'Recargo credito $', exportValue: (row) => row.creditSurchargeAmount ? money(row.creditSurchargeAmount) : '-' },
@@ -156,6 +171,7 @@ export function SalesPage() {
     { key: 'patientSpecies', label: 'Especie paciente', exportValue: (row) => patientById[row.patientId]?.species || '-' },
     { key: 'patientBreed', label: 'Raza paciente', exportValue: (row) => patientById[row.patientId]?.breed || '-' },
     { key: 'voidReason', label: 'Motivo anulacion' },
+    { key: 'tagIds', label: 'Etiquetas', exportValue: (row) => tagNamesFromIds(row.tagIds, saleTags).join(', ') || '-' },
     { key: 'notes', label: 'Notas' },
   ]
 
@@ -169,6 +185,7 @@ export function SalesPage() {
         [name]: normalizedValue,
         ...(name === 'date' ? { shiftId: '' } : {}),
         ...(name === 'paymentMethod' && value === 'Cuenta corriente' ? { paid: false } : {}),
+        ...(name === 'paymentMethod' && current.paymentMethod === 'Cuenta corriente' && value !== 'Cuenta corriente' ? { paid: true } : {}),
       }
       if (name === 'paymentMethod' && isCreditPaymentMethod(value)) {
         next.creditSurchargePercent = current.creditSurchargePercent || DEFAULT_CREDIT_SURCHARGE_PERCENT
@@ -182,7 +199,40 @@ export function SalesPage() {
     sales.clearFilters()
     setShiftFilter('')
     setMethodFilter('')
-    setVetFilter('')
+    setTagFilter('')
+  }
+
+
+  async function openCashSession() {
+    if (!canManageCashSession) {
+      feedback.warning('No tenés permiso para abrir cajas del día. Pedile a un administrador que abra la caja diaria.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const now = new Date()
+      const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      const session = await repository.ensureDailyCashSession({
+        date: form.date,
+        startTime,
+        openedBy: userOperationId(user),
+        openedByName: userOperationName(user),
+        notes: 'Caja diaria compartida abierta desde Ventas.',
+      })
+      setCreatedCashSession(session)
+      shifts.refresh?.()
+      setForm((current) => ({ ...current, shiftId: session.id }))
+      if (session.status === 'Cerrado') {
+        feedback.warning('La caja del día ya existe pero está cerrada. No se pueden cargar ventas nuevas.')
+      } else {
+        feedback.success(session.created ? 'Caja del día abierta. Ya podés cargar ventas.' : 'Caja del día ya estaba abierta. Se reutiliza la misma caja compartida.')
+      }
+    } catch (error) {
+      feedback.error(error?.message || 'No se pudo abrir la caja del día.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function saveSale(event) {
@@ -193,26 +243,22 @@ export function SalesPage() {
     }
     if (!selectedProduct) return
     if (!form.shiftId) {
-      feedback.warning('Seleccioná un turno de caja abierto para registrar la venta.')
+      feedback.warning('No hay caja del día abierta. Abrí la caja diaria para poder registrar ventas.')
       return
     }
     if (!selectedShift) {
-      feedback.warning('El turno de caja seleccionado ya no está disponible.')
+      feedback.warning('La caja seleccionada ya no está disponible.')
       return
     }
     if (selectedShift.status === 'Cerrado') {
-      feedback.warning('No se puede registrar una venta en un turno cerrado.')
-      return
-    }
-    if (!isAdmin && !isUserAssignedToShift(selectedShift, user)) {
-      feedback.warning('Tu usuario no está asignado al turno de caja seleccionado.')
+      feedback.warning('No se puede registrar una venta en una caja cerrada.')
       return
     }
     setSaving(true)
     try {
       await repository.createSaleTransaction({
         ...form,
-        shiftName: selectedShift.name || '',
+        shiftName: 'Caja del día',
         shiftDate: selectedShift.date || form.date,
         ...shiftUserPayload(selectedShift),
         qty: numberValue(form.qty) || 1,
@@ -220,11 +266,20 @@ export function SalesPage() {
         paid: forcedCurrentAccount ? false : Boolean(form.paid),
         clientName: clientMap[form.clientId] || '',
         patientName: patientMap[form.patientId] || '',
+        tagIds: Array.isArray(form.tagIds) ? form.tagIds : [],
+        tagNames: tagNamesFromIds(form.tagIds, saleTags),
       })
       feedback.success('La venta se registro con stock, caja/cuenta corriente y auditoria en una sola operacion.')
       sales.refresh?.()
       setModalOpen(false)
-      setForm(initialForm)
+      setForm((current) => ({
+        ...initialForm,
+        date: current.date,
+        shiftId: current.shiftId,
+        paymentMethod: current.paymentMethod,
+        creditSurchargePercent: current.creditSurchargePercent || DEFAULT_CREDIT_SURCHARGE_PERCENT,
+        paid: current.paymentMethod !== 'Cuenta corriente',
+      }))
     } catch (error) {
       feedback.error(error?.message || 'No se pudo guardar la venta.')
     } finally {
@@ -244,13 +299,9 @@ export function SalesPage() {
       tone: 'warning',
     })
     if (!ok) return
-    const rowShift = shifts.items.find((item) => item.id === row.shiftId)
-    if (!row.shiftId || !rowShift) {
-      feedback.warning('La venta no tiene un turno de caja abierto asociado. Revisá el turno antes de cobrar.')
-      return
-    }
-    if (!isAdmin && !isUserAssignedToShift(rowShift, user)) {
-      feedback.warning('Tu usuario no está asignado al turno de caja de esta venta.')
+    const rowShift = findOpenDailyCashSession(visibleCashSessions, todayISO())
+    if (!rowShift) {
+      feedback.warning('No hay caja del día abierta. Abrí la caja diaria para poder cobrar esta venta.')
       return
     }
     try {
@@ -258,7 +309,7 @@ export function SalesPage() {
         date: todayISO(),
         method: row.paymentMethod === 'Cuenta corriente' ? 'Efectivo' : row.paymentMethod,
         shiftId: rowShift.id,
-        shiftName: rowShift.name || row.shiftName || '',
+        shiftName: 'Caja del día',
         shiftDate: rowShift.date || row.shiftDate || row.date || todayISO(),
         ...shiftUserPayload(rowShift),
       })
@@ -300,12 +351,12 @@ export function SalesPage() {
       <SectionHeader
         eyebrow="Comercial"
         title="Ventas"
-        description="Ventas por día, turno de caja y usuario: stock, caja, deuda y auditoría quedan sincronizados. Las cuentas corrientes se gestionan en su propia seccion."
+        description="Comprobantes y cobros por día. La caja se asigna automáticamente cuando existe la caja diaria compartida abierta. Stock, deuda y auditoría quedan sincronizados."
         actions={
           <>
             <ExportButtons
               title="Ventas"
-              subtitle="Listado filtrado de ventas con datos de contacto, paciente, turno, caja, deuda y estado."
+              subtitle="Listado filtrado de ventas con datos de contacto, paciente, caja, deuda y estado."
               rows={sales.items}
               getRows={sales.fetchAllForExport}
               columns={exportColumns}
@@ -329,7 +380,7 @@ export function SalesPage() {
       </div>
 
       <div className="panel method-summary">
-        <h2>Resumen diario por turno y metodo</h2>
+        <h2>Resumen diario por caja y método</h2>
         <div className="inline-metrics">
           {Object.entries(totalsByShift).map(([shift, amount]) => (
             <span className="metric-pill" key={shift}>{shift}: <strong>{money(amount)}</strong></span>
@@ -352,23 +403,19 @@ export function SalesPage() {
         status={sales.status}
         onStatusChange={sales.setStatus}
         statusOptions={['Activa', 'Anulada']}
+        extraActive={Boolean(tagFilter)}
         onClearFilters={clearAllFilters}
-      />
+      >
+        <TagFilter value={tagFilter} options={saleTagOptions} onChange={setTagFilter} />
+      </ListToolbar>
 
       <div className="panel compact-card">
         <div className="form-grid">
           <label className="field">
-            <span>Turno</span>
+            <span>Caja</span>
             <select value={shiftFilter} onChange={(event) => setShiftFilter(event.target.value)}>
               <option value="">Todos</option>
               {shiftOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            <span>Responsable</span>
-            <select value={vetFilter} onChange={(event) => setVetFilter(event.target.value)}>
-              <option value="">Todos</option>
-              {vetOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
           <label className="field">
@@ -414,7 +461,6 @@ export function SalesPage() {
               onChange={handleChange}
               fields={[
                 { name: 'date', label: 'Fecha', type: 'date', required: true },
-                { name: 'shiftId', label: 'Turno de caja abierto', type: 'select', options: openShiftOptionsForSale, required: true, hint: openShiftOptionsForSale.length ? 'Solo aparecen los turnos abiertos asignados a tu usuario. Administrador ve todos.' : 'No hay turnos de caja abiertos/asignados para la fecha seleccionada.' },
                 { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
                 { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions },
                 { name: 'productId', label: 'Producto / servicio', type: 'select', options: productOptions, required: true },
@@ -423,9 +469,20 @@ export function SalesPage() {
                 ...(forcedCreditSurcharge ? [{ name: 'creditSurchargePercent', label: 'Recargo tarjeta credito (%)', type: 'number', min: '0', max: '100', step: '0.01', inputMode: 'decimal', placeholder: '15', hint: 'Al elegir Credito se carga 15% por defecto. Podes escribir otro porcentaje antes de guardar.' }] : []),
                 { name: 'paid', label: 'Pagado', type: 'checkbox', disabled: forcedCurrentAccount, hint: forcedCurrentAccount ? 'Cuenta corriente siempre queda pendiente.' : '' },
                 { name: 'dueDate', label: 'Vencimiento cuenta corriente', type: 'date' },
+                { name: 'tagIds', label: 'Etiquetas', type: 'tagPicker', options: saleTagOptions, hint: saleTagOptions.length ? 'Opcional. Clasifica la venta para filtrar después.' : 'Creá etiquetas desde Configuración > Etiquetas.' },
                 { name: 'notes', label: 'Notas', type: 'textarea' },
               ]}
             />
+            {!form.shiftId && (
+              <div className="system-card system-card-warning compact-card">
+                <strong>No hay caja del día abierta.</strong> Abrí la caja diaria para poder registrar ventas.
+                {canManageCashSession && (
+                  <button className="btn btn-small" type="button" onClick={openCashSession} disabled={saving}>
+                    Abrir caja del día
+                  </button>
+                )}
+              </div>
+            )}
             {selectedProduct && (
               <div className="preview-box">
                 {productMap[selectedProduct.id]} - Precio {money(selectedProduct.price)} - Stock {selectedProduct.stock} - {selectedProduct.type}

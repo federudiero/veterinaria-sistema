@@ -55,6 +55,7 @@ export function VaccinesPage() {
         { name: 'status', label: 'Estado', type: 'select', options: ['Aplicada', 'Programada', 'Vencida', 'Cancelada'] },
         { name: 'notes', label: 'Notas', type: 'textarea' },
       ]}
+      enableTags
       columns={columns}
     />
   )

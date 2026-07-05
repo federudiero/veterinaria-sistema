@@ -1,9 +1,25 @@
 import { DEFAULT_ROLE_PERMISSIONS } from './permissions.js'
 
-const today = new Date().toISOString().slice(0, 10)
-const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+function formatLocalISO(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const today = formatLocalISO()
+const tomorrow = formatLocalISO(new Date(Date.now() + 86400000))
 
 export const seedData = {
+  tags: [
+    { id: 'tag_vip', name: 'VIP', color: 'teal', scopes: ['clients', 'sales'], active: true, notes: 'Cliente o venta de alto valor.' },
+    { id: 'tag_moroso', name: 'Moroso', color: 'rose', scopes: ['clients', 'currentAccounts'], active: true, notes: 'Usar solo cuando haya deuda pendiente relevante.' },
+    { id: 'tag_cronico', name: 'Crónico', color: 'violet', scopes: ['patients', 'clinicalRecords'], active: true, notes: 'Paciente con seguimiento clínico prolongado.' },
+    { id: 'tag_alergico', name: 'Alérgico', color: 'amber', scopes: ['patients', 'clinicalRecords', 'prescriptions'], active: true, notes: 'Revisar alergias antes de medicar.' },
+    { id: 'tag_urgente', name: 'Urgente', color: 'rose', scopes: ['appointments', 'waitingQueue', 'reminders'], active: true, notes: 'Prioridad alta para recepción.' },
+    { id: 'tag_control', name: 'Control', color: 'blue', scopes: ['appointments', 'clinicalRecords', 'vaccines'], active: true, notes: 'Seguimiento o control programado.' },
+    { id: 'tag_promo', name: 'Promo', color: 'green', scopes: ['sales', 'products', 'futurePurchases'], active: true, notes: 'Producto o venta promocional.' },
+  ],
   clients: [
     {
       id: 'cli_001',
@@ -210,6 +226,9 @@ export const seedData = {
     {
       id: 'sale_001',
       date: today,
+      shiftId: `daily_${today}`,
+      shiftName: 'Caja del día',
+      shiftDate: today,
       clientId: 'cli_001',
       patientId: 'pac_001',
       items: [{ productId: 'prod_001', name: 'Vacuna séxtuple', qty: 1, price: 9500 }],
@@ -224,6 +243,9 @@ export const seedData = {
     {
       id: 'sale_002',
       date: today,
+      shiftId: `daily_${today}`,
+      shiftName: 'Caja del día',
+      shiftDate: today,
       clientId: 'cli_002',
       patientId: 'pac_002',
       items: [{ productId: 'prod_003', name: 'Alimento renal 2 kg', qty: 1, price: 22000 }],
@@ -241,6 +263,9 @@ export const seedData = {
     {
       id: 'cash_001',
       date: today,
+      shiftId: `daily_${today}`,
+      shiftName: 'Caja del día',
+      shiftDate: today,
       type: 'Ingreso',
       concept: 'Venta mostrador',
       method: 'Efectivo',
@@ -251,6 +276,9 @@ export const seedData = {
     {
       id: 'cash_002',
       date: today,
+      shiftId: `daily_${today}`,
+      shiftName: 'Caja del día',
+      shiftDate: today,
       type: 'Egreso',
       concept: 'Limpieza consultorio',
       method: 'Efectivo',
@@ -262,15 +290,23 @@ export const seedData = {
   globalCashClosures: [],
   shifts: [
     {
-      id: 'shift_demo_morning',
+      id: `daily_${today}`,
       date: today,
-      name: 'Manana',
+      name: 'Caja del día',
+      cashSessionScope: 'sharedDaily',
+      sharedDaily: true,
       startTime: '08:00',
-      endTime: '14:00',
-      veterinarianIds: ['demo-vet'],
-      veterinarianNames: ['Dra. Gomez'],
+      endTime: '',
+      veterinarianIds: [],
+      veterinarianNames: [],
+      cashierIds: [],
+      cashierNames: [],
+      responsibleUserIds: [],
+      responsibleUserNames: [],
+      openedBy: 'demo-admin',
+      openedByName: 'Administrador demo',
       status: 'Abierto',
-      notes: 'Turno demo para ventas y caja.',
+      notes: 'Caja diaria compartida demo para ventas y movimientos.',
     },
   ],
   stockMovements: [],
@@ -291,6 +327,9 @@ export const seedData = {
     {
       id: 'buy_001',
       date: today,
+      shiftId: `daily_${today}`,
+      shiftName: 'Caja del día',
+      shiftDate: today,
       supplierId: 'sup_001',
       productId: 'prod_001',
       qty: 10,
@@ -363,6 +402,9 @@ export const seedData = {
     {
       id: 'cc_001',
       date: today,
+      shiftId: `daily_${today}`,
+      shiftName: 'Caja del día',
+      shiftDate: today,
       dueDate: tomorrow,
       clientId: 'cli_002',
       type: 'Deuda',

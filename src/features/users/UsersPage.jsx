@@ -1,5 +1,6 @@
 import React from 'react'
 import { CrudPage } from '../common/CrudPage.jsx'
+import { useLookups } from '../../hooks/useLookups.js'
 import {
   DEFAULT_ROLE_PERMISSIONS,
   PERMISSION_OPTIONS,
@@ -10,9 +11,10 @@ import {
 
 function normalizeUserPayload(payload, editing) {
   const role = payload.role || 'recepcion'
-  const permissions = role === 'admin'
+  const permissions = role === 'admin' || role === 'cliente'
     ? []
     : normalizePermissions(payload.permissions?.length ? payload.permissions : getRolePermissions(role))
+  const clientId = String(payload.clientId || '').trim()
 
   return {
     ...payload,
@@ -22,10 +24,14 @@ function normalizeUserPayload(payload, editing) {
     role,
     active: Boolean(payload.active),
     permissions,
+    clientId,
+    clientIds: clientId ? [clientId] : [],
   }
 }
 
 export function UsersPage() {
+  const { clientOptions } = useLookups()
+
   return (
     <CrudPage
       collectionName="users"
@@ -42,6 +48,7 @@ export function UsersPage() {
         role: 'recepcion',
         active: true,
         permissions: DEFAULT_ROLE_PERMISSIONS.recepcion,
+        clientId: '',
       }}
       beforeSave={normalizeUserPayload}
       fields={[
@@ -62,6 +69,13 @@ export function UsersPage() {
         },
         { name: 'active', label: 'Activo / habilitado', type: 'checkbox' },
         {
+          name: 'clientId',
+          label: 'Cliente vinculado para portal',
+          type: 'select',
+          options: clientOptions,
+          hint: 'Usar solo cuando el rol sea Cliente / tutor portal. Limita qué pacientes e historias clínicas puede ver.',
+        },
+        {
           name: 'permissions',
           label: 'Permisos específicos',
           type: 'permissionsChecklist',
@@ -73,6 +87,7 @@ export function UsersPage() {
         { key: 'email', label: 'Email' },
         { key: 'uid', label: 'UID' },
         { key: 'role', label: 'Rol', render: (row) => ROLE_LABELS[row.role] || row.role },
+        { key: 'clientId', label: 'Cliente portal', render: (row) => row.clientId || '-' },
         { key: 'active', label: 'Estado', render: (row) => row.active ? 'Activo' : 'Bloqueado / pendiente' },
         { key: 'permissions', label: 'Permisos', render: (row) => row.role === 'admin' ? 'Acceso total' : `${row.permissions?.length || 0} permisos` },
       ]}
@@ -81,6 +96,7 @@ export function UsersPage() {
         { key: 'email', label: 'Email' },
         { key: 'uid', label: 'UID' },
         { key: 'role', label: 'Rol', render: (row) => ROLE_LABELS[row.role] || row.role },
+        { key: 'clientId', label: 'Cliente portal', render: (row) => row.clientId || '-' },
         { key: 'active', label: 'Activo', render: (row) => row.active ? 'Sí' : 'No' },
         { key: 'permissions', label: 'Permisos', exportValue: (row) => row.role === 'admin' ? 'Acceso total' : (row.permissions || []).join(', ') },
       ]}

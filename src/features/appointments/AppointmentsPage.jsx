@@ -8,13 +8,17 @@ import { ExportButtons } from '../../components/export/ExportButtons.jsx'
 import { IndividualExportActions } from '../../components/export/IndividualExportActions.jsx'
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
+import { usePagedCollection } from '../../hooks/usePagedCollection.js'
 import { useLookups } from '../../hooks/useLookups.js'
-import { useDataControls } from '../../hooks/useDataControls.js'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue.js'
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
-import { buildSearchPayload, normalizeSearchText } from '../../utils/search.js'
+import { buildSearchPayload, normalizeSearchText, searchTextContainsTerms } from '../../utils/search.js'
 import { dateLabel, todayISO } from '../../utils/formatters.js'
 import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
+import { TagFilter } from '../../components/tags/TagFilter.jsx'
+import { TagList } from '../../components/tags/TagBadge.jsx'
+import { tagNamesFromIds, tagOptionsForScope, tagsForScope } from '../../data/tagScopes.js'
 
 const STATUS_OPTIONS = ['Pendiente', 'Confirmado', 'En sala', 'Atendido', 'Cancelado', 'No asistió']
 const REMINDER_OPTIONS = ['Sin recordatorio', 'WhatsApp 24 h antes', 'Email', 'Llamada']
@@ -86,15 +90,16 @@ const initialForm = {
   status: 'Pendiente',
   reminder: 'WhatsApp 24 h antes',
   notes: '',
+  tagIds: [],
 }
 
 export function AppointmentsPage() {
-  const appointments = useCollection('appointments', { limitCount: 300, orderByField: 'date', orderDirection: 'desc' })
   const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
   const [selectedDate, setSelectedDate] = useState(todayISO())
   const [monthDate, setMonthDate] = useState(toDateAtNoon(todayISO()))
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(initialForm)
@@ -104,8 +109,37 @@ export function AppointmentsPage() {
   const { hasPermission } = useAuth()
   const canRead = hasPermission('agenda.read')
   const canWrite = hasPermission('agenda.write')
+  const tagsCollection = useCollection('tags', { limitCount: 250, orderByField: 'name', orderDirection: 'asc' })
+  const appointmentTags = useMemo(() => tagsForScope(tagsCollection.items, 'appointments'), [tagsCollection.items])
+  const appointmentTagOptions = useMemo(() => tagOptionsForScope(tagsCollection.items, 'appointments'), [tagsCollection.items])
 
   const calendarDays = useMemo(() => buildCalendarDays(monthDate), [monthDate])
+  const monthRange = useMemo(() => ({
+    start: calendarDays[0]?.iso || selectedDate,
+    end: calendarDays.at(-1)?.iso || selectedDate,
+  }), [calendarDays, selectedDate])
+  const appointments = useCollection('appointments', {
+    where: [
+      { field: 'date', op: '>=', value: monthRange.start },
+      { field: 'date', op: '<=', value: monthRange.end },
+    ],
+    limitCount: 300,
+    orderByField: 'date',
+    orderDirection: 'asc',
+  })
+  const debouncedQuery = useDebouncedValue(query, 300)
+  const selectedDayWhere = useMemo(() => [
+    { field: 'date', op: '==', value: selectedDate },
+    ...(statusFilter ? [{ field: 'status', op: '==', value: statusFilter }] : []),
+    ...(tagFilter ? [{ field: 'tagIds', op: 'array-contains', value: tagFilter }] : []),
+  ], [selectedDate, statusFilter, tagFilter])
+  const dailyAppointments = usePagedCollection('appointments', {
+    searchTerm: debouncedQuery,
+    where: selectedDayWhere,
+    limitCount: 25,
+    orderByField: 'time',
+    orderDirection: 'asc',
+  })
   const appointmentsByDate = useMemo(() => {
     return appointments.items.reduce((acc, item) => {
       const date = item.date || ''
@@ -117,12 +151,11 @@ export function AppointmentsPage() {
   }, [appointments.items])
 
   const selectedRows = useMemo(() => {
-    const normalizedQuery = normalizeSearchText(query)
-    return (appointmentsByDate[selectedDate] || [])
-      .filter((item) => !statusFilter || item.status === statusFilter)
-      .filter((item) => !normalizedQuery || rowSearch(item, clientMap, patientMap).includes(normalizedQuery))
+    const normalizedQuery = normalizeSearchText(debouncedQuery)
+    return [...dailyAppointments.items]
+      .filter((item) => !normalizedQuery || searchTextContainsTerms(rowSearch(item, clientMap, patientMap), normalizedQuery))
       .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
-  }, [appointmentsByDate, selectedDate, statusFilter, query, clientMap, patientMap])
+  }, [dailyAppointments.items, debouncedQuery, clientMap, patientMap])
 
   const dailySummary = useMemo(() => {
     const allRows = appointmentsByDate[selectedDate] || []
@@ -134,8 +167,6 @@ export function AppointmentsPage() {
     }
   }, [appointmentsByDate, selectedDate])
 
-  const dailyPage = useDataControls(selectedRows)
-
   const columns = [
     { key: 'time', label: 'Hora' },
     { key: 'clientId', label: 'Cliente', render: (row) => clientMap[row.clientId] || '-' },
@@ -143,6 +174,7 @@ export function AppointmentsPage() {
     { key: 'service', label: 'Servicio' },
     { key: 'professional', label: 'Profesional' },
     { key: 'status', label: 'Estado', render: (row) => <StatusBadge tone={statusTone(row.status)}>{row.status || 'Pendiente'}</StatusBadge> },
+    { key: 'tagIds', label: 'Etiquetas', render: (row) => <TagList tagIds={row.tagIds} tags={appointmentTags} /> },
   ]
 
   const exportColumns = patientContactExportColumns({
@@ -152,6 +184,7 @@ export function AppointmentsPage() {
       { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
       ...columns,
       { key: 'reminder', label: 'Recordatorio' },
+      { key: 'tagIds', label: 'Etiquetas', exportValue: (row) => tagNamesFromIds(row.tagIds, appointmentTags).join(', ') || '-' },
       { key: 'notes', label: 'Notas' },
     ],
   })
@@ -171,7 +204,7 @@ export function AppointmentsPage() {
       return
     }
     setEditing(null)
-    setForm({ ...initialForm, date })
+    setForm({ ...initialForm, date, tagIds: [] })
     setModalOpen(true)
   }
 
@@ -198,8 +231,10 @@ export function AppointmentsPage() {
         ...form,
         clientName: clientMap[form.clientId] || '',
         patientName: patientMap[form.patientId] || '',
+        tagIds: Array.isArray(form.tagIds) ? form.tagIds : [],
+        tagNames: tagNamesFromIds(form.tagIds, appointmentTags),
       }
-      const indexedPayload = { ...payload, ...buildSearchPayload(payload, ['date', 'time', 'service', 'professional', 'status', 'notes', 'clientName', 'patientName']) }
+      const indexedPayload = { ...payload, ...buildSearchPayload(payload, ['date', 'time', 'service', 'professional', 'status', 'notes', 'clientName', 'patientName', 'tagNames']) }
       if (editing) await appointments.update(editing.id, indexedPayload)
       else await appointments.create(indexedPayload)
       feedback.success(editing ? 'El turno se actualizó correctamente.' : 'El turno se creó correctamente.')
@@ -256,10 +291,11 @@ export function AppointmentsPage() {
               title={`Agenda ${dateLabel(selectedDate)}`}
               subtitle="Turnos filtrados por el día seleccionado."
               rows={selectedRows}
+              getRows={dailyAppointments.fetchAllForExport}
               columns={exportColumns}
               summary={[
                 { label: 'Día', value: dateLabel(selectedDate) },
-                { label: 'Turnos visibles', value: selectedRows.length },
+                { label: 'Turnos visibles en página', value: selectedRows.length },
               ]}
               fileLabel="agenda-turnos"
             />
@@ -327,17 +363,18 @@ export function AppointmentsPage() {
               <option value="">Todos los estados</option>
               {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
             </select>
+            <TagFilter value={tagFilter} options={appointmentTagOptions} onChange={setTagFilter} />
           </div>
         </aside>
       </div>
 
-      {appointments.error && <div className="alert alert-danger">{appointments.error}</div>}
-      {appointments.loading ? (
+      {(appointments.error || dailyAppointments.error) && <div className="alert alert-danger">{appointments.error || dailyAppointments.error}</div>}
+      {appointments.loading || dailyAppointments.loading ? (
         <div className="panel">Cargando agenda...</div>
       ) : (
         <>
           <DataTable
-            rows={dailyPage.rows}
+            rows={selectedRows}
             columns={columns}
             empty={`No hay turnos para el ${dateLabel(selectedDate)}.`}
             actions={(row) => (
@@ -355,13 +392,10 @@ export function AppointmentsPage() {
             )}
           />
           <Pagination
-            page={dailyPage.page}
-            pageCount={dailyPage.pageCount}
-            pageSize={dailyPage.pageSize}
-            onPageChange={dailyPage.setPage}
-            onPageSizeChange={dailyPage.setPageSize}
-            total={dailyPage.total}
-            rawTotal={selectedRows.length}
+            {...dailyAppointments}
+            onPageSizeChange={dailyAppointments.setPageSize}
+            total={selectedRows.length}
+            limit={dailyAppointments.pageSize}
           />
         </>
       )}
@@ -392,6 +426,7 @@ export function AppointmentsPage() {
                 { name: 'service', label: 'Servicio' },
                 { name: 'status', label: 'Estado', type: 'select', options: STATUS_OPTIONS },
                 { name: 'reminder', label: 'Recordatorio', type: 'select', options: REMINDER_OPTIONS },
+                { name: 'tagIds', label: 'Etiquetas', type: 'tagPicker', options: appointmentTagOptions, hint: appointmentTagOptions.length ? 'Opcional. Sirve para marcar urgencias, controles o servicios especiales.' : 'Creá etiquetas desde Configuración > Etiquetas.' },
                 { name: 'notes', label: 'Notas', type: 'textarea', rows: 4 },
               ]}
             />

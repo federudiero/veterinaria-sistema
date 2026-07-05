@@ -14,12 +14,17 @@ import { buildSearchPayload } from '../../utils/search.js'
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { COLLECTION_PERMISSIONS } from '../../data/modulePermissions.js'
+import { useCollection } from '../../hooks/useCollection.js'
+import { TagFilter } from '../../components/tags/TagFilter.jsx'
+import { TagList } from '../../components/tags/TagBadge.jsx'
+import { normalizeTagIds, tagNamesFromIds, tagOptionsForScope, tagsForScope } from '../../data/tagScopes.js'
 
 function normalizePayload(payload, fields) {
   const next = { ...payload }
   fields.forEach((field) => {
     if (field.type === 'number') next[field.name] = Number(next[field.name] || 0)
     if (field.type === 'checkbox') next[field.name] = Boolean(next[field.name])
+    if (field.type === 'tagPicker') next[field.name] = normalizeTagIds(next[field.name])
     if (field.type === 'permissions' || field.type === 'permissionsChecklist') {
       next[field.name] = String(next[field.name] || '')
         .split(',')
@@ -73,6 +78,7 @@ export function CrudPage({
   readPermission,
   writePermission,
   deletePermission,
+  allowDelete = true,
   dateField,
   statusField = 'status',
   statusOptions,
@@ -81,6 +87,8 @@ export function CrudPage({
   defaultOrderByField,
   defaultOrderDirection = 'desc',
   searchPlaceholder,
+  enableTags = false,
+  tagScope,
 }) {
   const modulePermissions = COLLECTION_PERMISSIONS[collectionName] || {}
   const effectiveReadPermission = readPermission ?? modulePermissions.read
@@ -89,11 +97,16 @@ export function CrudPage({
   const { hasPermission } = useAuth()
   const canRead = hasPermission(effectiveReadPermission)
   const canWrite = hasPermission(effectiveWritePermission)
-  const canDelete = hasPermission(effectiveDeletePermission)
+  const canDelete = allowDelete && hasPermission(effectiveDeletePermission)
+  const resolvedTagScope = tagScope || collectionName
+  const tagsCollection = useCollection('tags', { limitCount: 250, orderByField: 'name', orderDirection: 'asc' })
+  const availableTags = useMemo(() => enableTags ? tagsForScope(tagsCollection.items, resolvedTagScope) : [], [enableTags, resolvedTagScope, tagsCollection.items])
+  const tagOptions = useMemo(() => tagOptionsForScope(tagsCollection.items, resolvedTagScope), [resolvedTagScope, tagsCollection.items])
   const [query, setQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const debouncedQuery = useDebouncedValue(query, 300)
   const detectedDateField = dateField || (fields.some((field) => field.name === 'date') ? 'date' : '')
@@ -103,13 +116,16 @@ export function CrudPage({
   const showStatusFilter = enableStatusFilter ?? Boolean(detectedStatusField && finalStatusOptions.length)
   const orderByField = defaultOrderByField || (showDateFilters ? detectedDateField : 'updatedAt')
   const orderDirection = defaultOrderDirection
-  const whereFilters = useMemo(() => buildWhereFilters({
-    dateField: showDateFilters ? detectedDateField : '',
-    dateFrom,
-    dateTo,
-    statusField: showStatusFilter ? detectedStatusField : '',
-    statusFilter,
-  }), [showDateFilters, detectedDateField, dateFrom, dateTo, showStatusFilter, detectedStatusField, statusFilter])
+  const whereFilters = useMemo(() => [
+    ...buildWhereFilters({
+      dateField: showDateFilters ? detectedDateField : '',
+      dateFrom,
+      dateTo,
+      statusField: showStatusFilter ? detectedStatusField : '',
+      statusFilter,
+    }),
+    ...(enableTags && tagFilter ? [{ field: 'tagIds', op: 'array-contains', value: tagFilter }] : []),
+  ], [showDateFilters, detectedDateField, dateFrom, dateTo, showStatusFilter, detectedStatusField, statusFilter, enableTags, tagFilter])
 
   const list = usePagedCollection(collectionName, {
     searchTerm: debouncedQuery,
@@ -119,6 +135,22 @@ export function CrudPage({
     orderDirection,
   })
   const { items, loading, error, create, set, update, remove, refresh } = list
+  const tagColumn = useMemo(() => ({
+    key: 'tagIds',
+    label: 'Etiquetas',
+    render: (row) => <TagList tagIds={row.tagIds} tags={availableTags} />,
+    exportValue: (row) => tagNamesFromIds(row.tagIds, availableTags).join(', ') || '-',
+  }), [availableTags])
+  const effectiveFields = useMemo(() => enableTags ? [
+    ...fields,
+    { name: 'tagIds', label: 'Etiquetas', type: 'tagPicker', options: tagOptions, hint: tagOptions.length ? 'Podés asignar varias etiquetas para filtrar e identificar rápido.' : 'Creá etiquetas desde Configuración > Etiquetas.' },
+  ] : fields, [enableTags, fields, tagOptions])
+  const effectiveColumns = useMemo(() => enableTags ? [...columns, tagColumn] : columns, [columns, enableTags, tagColumn])
+  const effectiveExportColumns = useMemo(() => {
+    const base = exportColumns || columns
+    return enableTags ? [...base, tagColumn] : base
+  }, [columns, enableTags, exportColumns, tagColumn])
+  const effectiveSearchFields = useMemo(() => enableTags ? [...new Set([...searchFields, 'tagNames'])] : searchFields, [enableTags, searchFields])
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(initialValues)
@@ -128,7 +160,7 @@ export function CrudPage({
 
   useEffect(() => {
     list.reset?.()
-  }, [debouncedQuery, dateFrom, dateTo, statusFilter])
+  }, [debouncedQuery, dateFrom, dateTo, statusFilter, tagFilter])
 
   const pageRows = items
 
@@ -137,6 +169,7 @@ export function CrudPage({
     setDateFrom('')
     setDateTo('')
     setStatusFilter('')
+    setTagFilter('')
   }
 
   function openCreate() {
@@ -145,7 +178,7 @@ export function CrudPage({
       return
     }
     setEditing(null)
-    setForm(initialValues)
+    setForm(enableTags ? { ...initialValues, tagIds: [] } : initialValues)
     setModalOpen(true)
   }
 
@@ -167,9 +200,10 @@ export function CrudPage({
     event.preventDefault()
     setSaving(true)
     try {
-      let payload = normalizePayload(form, fields)
-      payload = { ...payload, ...buildSearchPayload(payload, searchFields) }
+      let payload = normalizePayload(form, effectiveFields)
+      if (enableTags) payload = { ...payload, tagNames: tagNamesFromIds(payload.tagIds, availableTags) }
       if (beforeSave) payload = await beforeSave(payload, editing)
+      payload = { ...payload, ...buildSearchPayload(payload, effectiveSearchFields) }
       if (editing) await update(editing.id, payload)
       else if (documentIdField && payload[documentIdField]) await set(String(payload[documentIdField]).trim(), payload)
       else await create(payload)
@@ -231,12 +265,13 @@ export function CrudPage({
               subtitle={exportSubtitle || `${description || title}. Exporta todos los registros filtrados hasta el máximo seguro de lectura.`}
               rows={pageRows}
               getRows={list.fetchAllForExport}
-              columns={exportColumns || columns}
+              columns={effectiveExportColumns}
               summary={exportSummary || [
                 { label: 'Registros en esta página', value: pageRows.length },
                 ...(debouncedQuery ? [{ label: 'Búsqueda', value: debouncedQuery }] : []),
                 ...(dateFrom || dateTo ? [{ label: 'Rango', value: `${dateFrom || 'inicio'} a ${dateTo || 'hoy'}` }] : []),
                 ...(statusFilter ? [{ label: 'Estado', value: statusFilter }] : []),
+                ...(tagFilter ? [{ label: 'Etiqueta', value: availableTags.find((tag) => tag.id === tagFilter)?.name || tagFilter }] : []),
               ]}
               fileLabel={exportFileLabel || title}
             />
@@ -257,8 +292,11 @@ export function CrudPage({
         status={showStatusFilter ? statusFilter : undefined}
         onStatusChange={showStatusFilter ? setStatusFilter : undefined}
         statusOptions={showStatusFilter ? finalStatusOptions : []}
+        extraActive={Boolean(tagFilter)}
         onClearFilters={clearFilters}
-      />
+      >
+        {enableTags && <TagFilter value={tagFilter} options={tagOptions} onChange={setTagFilter} />}
+      </ListToolbar>
 
       {error && <div className="alert alert-danger">{error}</div>}
       {loading ? (
@@ -267,13 +305,13 @@ export function CrudPage({
         <>
           <DataTable
             rows={pageRows}
-            columns={columns}
+            columns={effectiveColumns}
             empty={emptyState}
             actions={(row) => (
               <>
                 <IndividualExportActions
                   row={row}
-                  columns={exportColumns || columns}
+                  columns={effectiveExportColumns}
                   title={title}
                   subtitle="Detalle individual con los datos visibles y relacionados configurados para esta seccion."
                   fileLabel={exportFileLabel || title}
@@ -307,7 +345,7 @@ export function CrudPage({
           }
         >
           <form id={formId} onSubmit={handleSubmit}>
-            <FormGrid fields={fields} value={form} onChange={handleChange} />
+            <FormGrid fields={effectiveFields} value={form} onChange={handleChange} />
           </form>
         </Modal>
       )}

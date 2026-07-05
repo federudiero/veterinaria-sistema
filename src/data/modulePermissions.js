@@ -22,6 +22,7 @@ export const COLLECTION_PERMISSIONS = {
   memberships: { read: 'mutualismo.read', write: 'mutualismo.write', delete: 'mutualismo.write' },
   users: { read: 'usuarios.read', write: 'usuarios.write', delete: 'usuarios.write' },
   auditLogs: { read: 'auditoria.read', write: null, delete: null },
+  tags: { read: 'configuracion.read', write: 'configuracion.write', delete: 'configuracion.write' },
   settings: { read: 'configuracion.read', write: 'configuracion.write', delete: 'configuracion.write' },
 }
 
@@ -36,7 +37,8 @@ export const ROUTE_PERMISSIONS = {
   '/recordatorios': 'agenda.read',
   '/cola-espera': 'agenda.read',
   '/turnos-caja': 'caja.read',
-  '/turnos-veterinarios': 'caja.read',
+  '/cajas-del-dia': 'caja.read',
+  '/turnos-veterinarios': 'agenda.read',
   '/venta-rapida': 'ventas.read',
   '/ventas': 'ventas.read',
   '/cuentas-corrientes': 'caja.read',
@@ -52,5 +54,6 @@ export const ROUTE_PERMISSIONS = {
   '/respaldo': 'backup.read',
   '/usuarios': 'usuarios.read',
   '/auditoria': 'auditoria.read',
+  '/etiquetas': 'configuracion.read',
   '/configuracion': 'configuracion.read',
 }

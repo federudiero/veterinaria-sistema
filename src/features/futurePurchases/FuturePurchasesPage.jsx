@@ -93,6 +93,7 @@ export function FuturePurchasesPage() {
         { name: 'status', label: 'Estado', type: 'select', options: ['Pendiente', 'Pedido al proveedor', 'Disponible para retirar', 'Entregado', 'Cancelado'] },
         { name: 'notes', label: 'Notas', type: 'textarea', rows: 4, hint: 'No afecta stock. Cuando llegue el producto, cargá la compra real en Compras o cargalo al stock desde el flujo normal.' },
       ]}
+      enableTags
       columns={columns}
       emptyState="No hay compras futuras registradas."
     />

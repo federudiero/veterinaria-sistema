@@ -25,6 +25,7 @@ export function ProductsPage() {
         { name: 'unit', label: 'Unidad', type: 'select', options: ['unidad', 'servicio', 'bolsa', 'frasco', 'caja', 'kg', 'litro'] },
         { name: 'active', label: 'Activo', type: 'checkbox' },
       ]}
+      enableTags
       columns={[
         { key: 'sku', label: 'SKU' },
         { key: 'name', label: 'Producto' },

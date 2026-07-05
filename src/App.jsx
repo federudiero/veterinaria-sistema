@@ -2,6 +2,7 @@ import React from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/layout/Layout.jsx'
 import { ProtectedRoute } from './routes/ProtectedRoute.jsx'
+import { PatientPortalRoute } from './routes/PatientPortalRoute.jsx'
 import { LoginPage } from './features/auth/LoginPage.jsx'
 import { DashboardPage } from './features/dashboard/DashboardPage.jsx'
 import { ClientsPage } from './features/clients/ClientsPage.jsx'
@@ -27,8 +28,10 @@ import { ReportsPage } from './features/reports/ReportsPage.jsx'
 import { UsersPage } from './features/users/UsersPage.jsx'
 import { AuditPage } from './features/audit/AuditPage.jsx'
 import { SettingsPage } from './features/settings/SettingsPage.jsx'
+import { TagsPage } from './features/tags/TagsPage.jsx'
 import { DocumentsPage } from './features/documents/DocumentsPage.jsx'
 import { BackupPage } from './features/backup/BackupPage.jsx'
+import { PatientPortalPage } from './features/portal/PatientPortalPage.jsx'
 import { PermissionRoute } from './routes/PermissionRoute.jsx'
 import { ROUTE_PERMISSIONS } from './data/modulePermissions.js'
 
@@ -36,6 +39,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/admin/login" element={<LoginPage defaultMode="admin" />} />
+      <Route path="/portal/login" element={<LoginPage defaultMode="portal" />} />
+      <Route path="/portal" element={<PatientPortalRoute><PatientPortalPage /></PatientPortalRoute>} />
       <Route
         path="/"
         element={
@@ -54,8 +60,9 @@ export default function App() {
         <Route path="agenda" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/agenda']}><AppointmentsPage /></PermissionRoute>} />
         <Route path="recordatorios" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/recordatorios']}><RemindersPage /></PermissionRoute>} />
         <Route path="cola-espera" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/cola-espera']}><WaitingQueuePage /></PermissionRoute>} />
-        <Route path="turnos-caja" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/turnos-caja']}><ShiftsPage /></PermissionRoute>} />
-        <Route path="turnos-veterinarios" element={<Navigate to="/turnos-caja" replace />} />
+        <Route path="cajas-del-dia" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/cajas-del-dia']}><ShiftsPage /></PermissionRoute>} />
+        <Route path="turnos-caja" element={<Navigate to="/cajas-del-dia" replace />} />
+        <Route path="turnos-veterinarios" element={<Navigate to="/agenda" replace />} />
         <Route path="venta-rapida" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/venta-rapida']}><QuickSalePage /></PermissionRoute>} />
         <Route path="ventas" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/ventas']}><SalesPage /></PermissionRoute>} />
         <Route path="cuentas-corrientes" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/cuentas-corrientes']}><CurrentAccountsPage /></PermissionRoute>} />
@@ -71,6 +78,7 @@ export default function App() {
         <Route path="respaldo" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/respaldo']}><BackupPage /></PermissionRoute>} />
         <Route path="usuarios" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/usuarios']}><UsersPage /></PermissionRoute>} />
         <Route path="auditoria" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/auditoria']}><AuditPage /></PermissionRoute>} />
+        <Route path="etiquetas" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/etiquetas']}><TagsPage /></PermissionRoute>} />
         <Route path="configuracion" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/configuracion']}><SettingsPage /></PermissionRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

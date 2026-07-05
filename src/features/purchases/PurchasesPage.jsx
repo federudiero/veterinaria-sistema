@@ -1,4 +1,4 @@
-import React, { useId, useMemo, useState } from 'react'
+import React, { useEffect, useId, useMemo, useState } from 'react'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
 import { Modal } from '../../components/ui/Modal.jsx'
@@ -14,7 +14,7 @@ import { dateLabel, money, numberValue, sumBy, todayISO } from '../../utils/form
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
-import { filterOpenShiftsForUser, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
+import { findOpenDailyCashSession, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
 
 const initialForm = {
   date: todayISO(),
@@ -41,19 +41,23 @@ export function PurchasesPage() {
   const purchaseFormId = useId()
   const voidFormId = useId()
   const feedback = useFeedback()
-  const { hasPermission, user } = useAuth()
+  const { hasPermission } = useAuth()
   const canWrite = hasPermission('compras.write')
 
   const selectedProduct = useMemo(() => products.find((item) => item.id === form.productId), [products, form.productId])
   const total = numberValue(form.qty) * numberValue(form.cost)
   const activePurchases = purchases.items.filter((item) => item.status !== 'Anulada')
   const totalActive = sumBy(activePurchases, (item) => item.total || numberValue(item.qty) * numberValue(item.cost))
-  const openShiftOptions = useMemo(() => filterOpenShiftsForUser(shifts.items, user, form.date)
-    .map((item) => ({
-      value: item.id,
-      label: shiftOptionLabel(item),
-    })), [form.date, shifts.items, user])
-  const selectedShift = useMemo(() => shifts.items.find((item) => item.id === form.shiftId), [form.shiftId, shifts.items])
+  const selectedShift = useMemo(() => findOpenDailyCashSession(shifts.items, form.date), [form.date, shifts.items])
+  const openShiftOptions = useMemo(() => selectedShift ? [{
+    value: selectedShift.id,
+    label: shiftOptionLabel(selectedShift),
+  }] : [], [selectedShift])
+
+  useEffect(() => {
+    if (!form.paid || form.shiftId || !openShiftOptions.length) return
+    setForm((current) => ({ ...current, shiftId: openShiftOptions[0].value }))
+  }, [form.paid, form.shiftId, openShiftOptions])
 
   const columns = [
     { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
@@ -87,7 +91,7 @@ export function PurchasesPage() {
     }
     if (!selectedProduct) return
     if (form.paid && !selectedShift) {
-      feedback.warning('Seleccioná un turno de caja abierto para registrar el egreso de la compra pagada.')
+      feedback.warning('No hay caja del día abierta. Abrí la caja diaria para registrar el egreso de la compra pagada.')
       return
     }
     setSaving(true)
@@ -101,7 +105,8 @@ export function PurchasesPage() {
         productName: productMap[form.productId] || selectedProduct?.name || '',
         productSku: productById[form.productId]?.sku || selectedProduct?.sku || '',
         ...(selectedShift ? {
-          shiftName: selectedShift.name || '',
+          shiftId: selectedShift.id,
+          shiftName: 'Caja del día',
           shiftDate: selectedShift.date || form.date,
           ...shiftUserPayload(selectedShift),
         } : {}),
@@ -148,7 +153,7 @@ export function PurchasesPage() {
       <SectionHeader
         eyebrow="Compras"
         title="Compras"
-        description="Compras transaccionales: reposición de stock, egreso de caja si está pagada y auditoría automática."
+        description="Compras transaccionales: reposición de stock, egreso en la caja abierta si está pagada y auditoría automática."
         actions={
           <>
             <ExportButtons
@@ -223,12 +228,16 @@ export function PurchasesPage() {
                 { name: 'qty', label: 'Cantidad', type: 'number' },
                 { name: 'cost', label: 'Costo unitario', type: 'number' },
                 { name: 'paid', label: 'Pagado', type: 'checkbox' },
-                { name: 'paymentMethod', label: 'Método de pago', type: 'select', options: ['Efectivo', 'Transferencia', 'Débito', 'Crédito', 'Otro'] },
-                ...(form.paid ? [{ name: 'shiftId', label: 'Turno de caja abierto', type: 'select', options: openShiftOptions, required: true, hint: openShiftOptions.length ? 'La compra pagada genera un egreso de caja en este turno.' : 'No hay turnos de caja abiertos/asignados para esa fecha.' }] : []),
+                { name: 'paymentMethod', label: 'Método de pago', type: 'select', options: ['Efectivo', 'Transferencia', 'Debito', 'Credito', 'Otro'] },
                 { name: 'invoice', label: 'Factura / remito' },
                 { name: 'notes', label: 'Notas', type: 'textarea' },
               ]}
             />
+            {form.paid && !selectedShift && (
+              <div className="system-card system-card-warning compact-card">
+                <strong>No hay caja del día abierta.</strong> Abrí la caja diaria para registrar esta compra pagada.
+              </div>
+            )}
             {selectedProduct && <div className="preview-box">Stock actual: {selectedProduct.stock} · Nuevo stock estimado: {numberValue(selectedProduct.stock) + numberValue(form.qty)}</div>}
           </form>
         </Modal>

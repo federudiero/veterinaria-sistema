@@ -15,7 +15,7 @@ import {
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
-import { filterOpenShiftsForUser, isUserAssignedToShift, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
+import { findOpenDailyCashSession, shiftOptionLabel, shiftUserPayload, userOperationId, userOperationName } from '../../utils/shifts.js'
 
 const paymentMethods = ['Efectivo', 'Transferencia', 'Debito', 'Credito', 'Cuenta corriente']
 const qtyPresets = [1, 2, 3, 5]
@@ -58,8 +58,7 @@ export function QuickSalePage() {
   const feedback = useFeedback()
   const { hasPermission, user } = useAuth()
   const canWrite = hasPermission('ventas.write')
-  const isAdmin = user?.role === 'admin'
-
+  const canManageCashSession = hasPermission('caja.close')
   const { clientOptions, patientOptions, clientMap, patientMap } = useLookups()
   const products = useCollection('products', { limitCount: 300, orderByField: 'name', orderDirection: 'asc' })
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
@@ -77,12 +76,16 @@ export function QuickSalePage() {
   const [category, setCategory] = useState('Todos')
   const [showDetails, setShowDetails] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [createdCashSession, setCreatedCashSession] = useState(null)
 
-  const openShiftOptions = useMemo(() => filterOpenShiftsForUser(shifts.items, user, form.date)
-    .map((item) => ({
-      value: item.id,
-      label: shiftOptionLabel(item),
-    })), [form.date, shifts.items, user])
+  const visibleCashSessions = useMemo(() => [
+    ...shifts.items,
+    ...(createdCashSession ? [createdCashSession] : []),
+  ].filter(Boolean), [createdCashSession, shifts.items])
+  const openShiftOptions = useMemo(() => {
+    const shift = findOpenDailyCashSession(visibleCashSessions, form.date)
+    return shift ? [{ value: shift.id, label: shiftOptionLabel(shift) }] : []
+  }, [form.date, visibleCashSessions])
 
   useEffect(() => {
     if (form.shiftId || !openShiftOptions.length) return
@@ -90,8 +93,8 @@ export function QuickSalePage() {
   }, [form.shiftId, openShiftOptions])
 
   const selectedShift = useMemo(
-    () => shifts.items.find((item) => item.id === form.shiftId),
-    [form.shiftId, shifts.items],
+    () => visibleCashSessions.find((item) => item.id === form.shiftId) || null,
+    [form.shiftId, visibleCashSessions],
   )
 
   const activeProducts = useMemo(() => products.items.filter((item) => item.active !== false), [products.items])
@@ -120,7 +123,7 @@ export function QuickSalePage() {
   const todayPaid = todayActiveSales.filter((item) => item.paid)
   const todayPending = todayActiveSales.filter((item) => !item.paid)
   const recentColumns = [
-    { key: 'shiftName', label: 'Turno', render: (row) => row.shiftName || 'Sin turno' },
+    { key: 'shiftName', label: 'Caja', render: (row) => row.shiftName || 'Sin caja' },
     { key: 'clientId', label: 'Cliente', render: (row) => clientMap[row.clientId] || row.clientName || 'Mostrador' },
     { key: 'items', label: 'Detalle', render: (row) => row.items?.map((item) => `${item.name} x${item.qty}`).join(', ') || '-' },
     { key: 'paymentMethod', label: 'Pago', render: (row) => paymentLabelWithSurcharge(row.paymentMethod, row.creditSurchargePercent) },
@@ -137,6 +140,7 @@ export function QuickSalePage() {
         [name]: normalizedValue,
         ...(name === 'date' ? { shiftId: '' } : {}),
         ...(name === 'paymentMethod' && value === 'Cuenta corriente' ? { paid: false } : {}),
+        ...(name === 'paymentMethod' && value !== 'Cuenta corriente' ? { paid: true } : {}),
       }
       if (name === 'paymentMethod' && isCreditPaymentMethod(value)) {
         next.creditSurchargePercent = current.creditSurchargePercent || DEFAULT_CREDIT_SURCHARGE_PERCENT
@@ -158,6 +162,39 @@ export function QuickSalePage() {
     setQty(Math.max(1, numberValue(nextQty) || 1))
   }
 
+
+  async function openCashSession() {
+    if (!canManageCashSession) {
+      feedback.warning('No tenés permiso para abrir cajas del día. Pedile a un administrador que abra la caja diaria.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const now = new Date()
+      const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      const session = await repository.ensureDailyCashSession({
+        date: form.date,
+        startTime,
+        openedBy: userOperationId(user),
+        openedByName: userOperationName(user),
+        notes: 'Caja diaria compartida abierta desde Venta rápida.',
+      })
+      setCreatedCashSession(session)
+      shifts.refresh?.()
+      setForm((current) => ({ ...current, shiftId: session.id }))
+      if (session.status === 'Cerrado') {
+        feedback.warning('La caja del día ya existe pero está cerrada. No se pueden registrar ventas nuevas.')
+      } else {
+        feedback.success(session.created ? 'Caja del día abierta. Ya podés registrar ventas.' : 'Caja del día ya estaba abierta. Se reutiliza la misma caja compartida.')
+      }
+    } catch (error) {
+      feedback.error(error?.message || 'No se pudo abrir la caja del día.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function saveQuickSale(event) {
     event.preventDefault()
     if (!canWrite) {
@@ -169,22 +206,17 @@ export function QuickSalePage() {
       return
     }
     if (!form.shiftId) {
-      feedback.warning('Seleccioná un turno de caja abierto para registrar la venta.')
+      feedback.warning('No hay caja del día abierta. Abrí la caja diaria para poder registrar ventas.')
       setShowDetails(true)
       return
     }
     if (!selectedShift) {
-      feedback.warning('El turno de caja seleccionado ya no está disponible.')
+      feedback.warning('La caja seleccionada ya no está disponible.')
       setShowDetails(true)
       return
     }
     if (selectedShift.status === 'Cerrado') {
-      feedback.warning('No se puede registrar una venta en un turno cerrado.')
-      setShowDetails(true)
-      return
-    }
-    if (!isAdmin && !isUserAssignedToShift(selectedShift, user)) {
-      feedback.warning('Tu usuario no está asignado al turno de caja seleccionado.')
+      feedback.warning('No se puede registrar una venta en una caja cerrada.')
       setShowDetails(true)
       return
     }
@@ -202,7 +234,7 @@ export function QuickSalePage() {
         qty: normalizedQty,
         creditSurchargePercent: salePricing.creditSurchargePercent,
         paid: forcedCurrentAccount ? false : Boolean(form.paid),
-        shiftName: selectedShift.name || '',
+        shiftName: 'Caja del día',
         shiftDate: selectedShift.date || form.date,
         ...shiftUserPayload(selectedShift),
         clientName: clientMap[form.clientId] || '',
@@ -234,7 +266,7 @@ export function QuickSalePage() {
       <SectionHeader
         eyebrow="Mostrador"
         title="Venta rápida"
-        description="Carga táctil para momentos de mucha clientela: elegís producto, cantidad, método de pago y guardás sin pasar por una grilla larga. Usa la misma transacción de ventas, stock, caja, cuenta corriente y auditoría."
+        description="Carga táctil para mostrador: elegís producto, cantidad y método de pago. La venta queda asociada automáticamente a la caja diaria compartida para sincronizar stock, caja, cuenta corriente y auditoría."
       />
 
       <div className="quick-sale-stats stats-grid compact">
@@ -381,7 +413,7 @@ export function QuickSalePage() {
           </div>
 
           <button className="quick-details-toggle" type="button" onClick={() => setShowDetails((value) => !value)}>
-            {showDetails ? 'Ocultar datos opcionales' : 'Cliente, paciente, turno de caja y notas'}
+            {showDetails ? 'Ocultar datos opcionales' : 'Cliente, paciente y notas'}
           </button>
 
           {showDetails && (
@@ -389,13 +421,6 @@ export function QuickSalePage() {
               <label className="field">
                 <span>Fecha</span>
                 <input type="date" value={form.date} onChange={(event) => updateForm('date', event.target.value)} />
-              </label>
-              <label className="field">
-                <span>Turno de caja abierto</span>
-                <select value={form.shiftId} onChange={(event) => updateForm('shiftId', event.target.value)} required>
-                  <option value="">Seleccionar turno</option>
-                  {openShiftOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
               </label>
               <label className="field">
                 <span>Cliente</span>
@@ -421,6 +446,17 @@ export function QuickSalePage() {
                 <span>Notas</span>
                 <textarea rows="3" value={form.notes} onChange={(event) => updateForm('notes', event.target.value)} placeholder="Observaciones internas..." />
               </label>
+            </div>
+          )}
+
+          {!form.shiftId && (
+            <div className="system-card system-card-warning compact-card">
+              <strong>No hay caja del día abierta.</strong> Abrí la caja diaria para poder registrar ventas.
+              {canManageCashSession && (
+                <button className="btn btn-small" type="button" onClick={openCashSession} disabled={saving}>
+                  Abrir caja del día
+                </button>
+              )}
             </div>
           )}
 

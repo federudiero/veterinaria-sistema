@@ -41,6 +41,9 @@ export function MembershipsPage() {
       searchPlaceholder="Buscar plan por cliente, paciente, teléfono, plan, estado o próximo cobro..."
       beforeSave={normalizeLookupPayload}
       exportColumns={exportColumns}
+      dateField="nextBilling"
+      defaultOrderByField="nextBilling"
+      defaultOrderDirection="asc"
       initialValues={{ clientId: '', patientId: '', plan: '', monthlyFee: 0, status: 'Activo', nextBilling: '', notes: '' }}
       fields={[
         { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
@@ -51,6 +54,7 @@ export function MembershipsPage() {
         { name: 'nextBilling', label: 'Próximo cobro', type: 'date' },
         { name: 'notes', label: 'Notas', type: 'textarea' },
       ]}
+      enableTags
       columns={columns}
     />
   )

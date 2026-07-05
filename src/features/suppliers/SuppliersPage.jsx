@@ -22,6 +22,7 @@ export function SuppliersPage() {
         { name: 'balance', label: 'Saldo', type: 'number' },
         { name: 'notes', label: 'Notas', type: 'textarea' },
       ]}
+      enableTags
       columns={[
         { key: 'name', label: 'Proveedor' },
         { key: 'cuit', label: 'CUIT' },

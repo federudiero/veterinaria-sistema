@@ -57,6 +57,7 @@ export function ClinicalRecordsPage() {
         { name: 'amount', label: 'Importe', type: 'number' },
         { name: 'paid', label: 'Pagado', type: 'checkbox' },
       ]}
+      enableTags
       columns={columns}
     />
   )

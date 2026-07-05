@@ -1,3 +1,5 @@
+> Nota vigente: este documento describe el modelo anterior con cierre por turno y cierre global. En el modelo actual de caja diaria compartida, la operación normal usa un único cierre visible: **Cerrar caja del día**. `globalCashClosures` queda solo para compatibilidad/histórico y no se muestra como cierre operativo en Caja diaria.
+
 # Fase 7 - Turnos, ventas y caja
 
 ## Objetivo
@@ -22,7 +24,7 @@ Esta fase agrega soporte comercial para operar ventas y caja por turno veterinar
 - Pago de cuenta corriente: requiere turno abierto.
 - Repositorio Firestore/local: rechaza operaciones sobre turnos cerrados cuando reciben `shiftId`.
 - Cierre de caja por turno: cierra solo movimientos del turno seleccionado.
-- Cierre global: no cierra si hay turnos abiertos o si no existen cierres de turno.
+- Cierre global: concepto histórico del modelo anterior. En la operación actual se usa un único cierre: **Cerrar caja del día**.
 - Ventas legacy sin turno siguen visibles como `Sin turno`.
 
 ## Permisos

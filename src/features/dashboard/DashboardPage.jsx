@@ -68,13 +68,13 @@ export function DashboardPage() {
     const closure = cashClosures.items.find((item) => item.shiftId === shift.id)
     return {
       ...shift,
-      responsible: shift.veterinarianNames?.join(', ') || 'Sin responsable',
+      scope: shift.cashSessionScope === 'sharedDaily' || shift.sharedDaily ? 'Compartida' : 'Legacy',
       schedule: `${shift.startTime || '-'} - ${shift.endTime || '-'}`,
       salesCount: shiftSales.length,
       salesTotal: sumBy(shiftSales, (item) => item.total),
       cashNet: shiftIncome - shiftExpenses,
       movementCount: shiftCash.length,
-      closureStatus: closure ? 'Cerrado con caja' : shift.status || 'Abierto',
+      closureStatus: closure ? 'Cerrada con caja' : shift.status || 'Abierto',
     }
   })
   const openShiftCount = shiftRows.filter((item) => item.status !== 'Cerrado').length
@@ -89,9 +89,9 @@ export function DashboardPage() {
   ]
 
   const shiftColumns = [
-    { key: 'name', label: 'Turno' },
+    { key: 'name', label: 'Caja' },
     { key: 'schedule', label: 'Horario' },
-    { key: 'responsible', label: 'Responsable' },
+    { key: 'scope', label: 'Tipo' },
     { key: 'salesTotal', label: 'Ventas', render: (row) => `${money(row.salesTotal)} (${row.salesCount})` },
     { key: 'cashNet', label: 'Caja neta', render: (row) => money(row.cashNet) },
     { key: 'movementCount', label: 'Movimientos' },
@@ -110,7 +110,7 @@ export function DashboardPage() {
     { label: 'Pacientes', value: patientsCount.count },
     { label: 'Agenda clínica hoy', value: appointmentsCount.count },
     { label: 'Ventas hoy', value: money(sumBy(activeSales, (item) => item.total)) },
-    { label: 'Turnos caja abiertos', value: openShiftCount },
+    { label: 'Caja diaria', value: openShiftCount ? 'Abierta' : closedShiftCount ? 'Cerrada' : 'Sin abrir' },
     { label: 'Caja neta hoy', value: money(income - expenses) },
     { label: 'Movimientos abiertos', value: openCashMovements.length },
     { label: 'Pendiente de cobro', value: money(sumBy(pendingPayments, (item) => item.total)) },
@@ -121,7 +121,7 @@ export function DashboardPage() {
       <SectionHeader
         eyebrow="Panel principal"
         title="Dashboard operativo"
-        description="Resumen comercial del día: agenda clínica, ventas, turnos de caja, movimientos abiertos, stock crítico y cierres."
+        description="Resumen comercial del día: agenda clínica, ventas, caja diaria compartida, movimientos pendientes de cierre, stock crítico y cierres."
         actions={
           <ExportButtons
             title="Dashboard operativo"
@@ -130,11 +130,11 @@ export function DashboardPage() {
               { id: 'clients', metric: 'Clientes', value: clientsCount.count, detail: 'Conteo de servidor' },
               { id: 'patients', metric: 'Pacientes', value: patientsCount.count, detail: 'Conteo de servidor' },
               { id: 'appointments', metric: 'Agenda clínica hoy', value: appointmentsCount.count, detail: dateLabel(today) },
-              { id: 'cash_shifts', metric: 'Turnos de caja abiertos', value: openShiftCount, detail: `${closedShiftCount} cerrados` },
+              { id: 'cash_shifts', metric: 'Caja diaria', value: openShiftCount ? 'Abierta' : closedShiftCount ? 'Cerrada' : 'Sin abrir', detail: `${closedShiftCount} cerradas` },
               { id: 'sales', metric: 'Ventas hoy', value: money(sumBy(activeSales, (item) => item.total)), detail: `${salesCount.count} comprobantes` },
               { id: 'pending', metric: 'Pendiente de cobro', value: money(sumBy(pendingPayments, (item) => item.total)), detail: `${pendingPayments.length} ventas leídas` },
               { id: 'cash', metric: 'Caja neta hoy', value: money(income - expenses), detail: `Ingresos ${money(income)} · Egresos ${money(expenses)}` },
-              { id: 'open_cash', metric: 'Movimientos abiertos', value: openCashMovements.length, detail: cashWithoutShift.length ? `${cashWithoutShift.length} sin turno` : 'Todos con turno' },
+              { id: 'open_cash', metric: 'Movimientos abiertos', value: openCashMovements.length, detail: cashWithoutShift.length ? `${cashWithoutShift.length} sin caja` : 'Todos con caja' },
               { id: 'stock', metric: 'Stock crítico', value: lowStock.length, detail: 'Productos bajo mínimo en lectura limitada' },
               { id: 'boarding', metric: 'Internados', value: openBoarding.length, detail: 'Activos / guardería' },
             ]}
@@ -153,11 +153,11 @@ export function DashboardPage() {
         <StatCard label="Clientes" value={clientsCount.count} help="Conteo del servidor" />
         <StatCard label="Pacientes" value={patientsCount.count} help="Conteo del servidor" />
         <StatCard label="Agenda clínica hoy" value={appointmentsCount.count} help={dateLabel(today)} tone="info" />
-        <StatCard label="Turnos caja abiertos" value={openShiftCount} help={`${closedShiftCount} cerrados`} tone={openShiftCount ? 'warning' : 'success'} />
+        <StatCard label="Caja diaria" value={openShiftCount ? 'Abierta' : closedShiftCount ? 'Cerrada' : 'Sin abrir'} help={dateLabel(today)} tone={openShiftCount ? 'warning' : 'success'} />
         <StatCard label="Ventas hoy" value={money(sumBy(activeSales, (item) => item.total))} help={`${salesCount.count} comprobantes`} tone="success" />
         <StatCard label="Pendiente de cobro" value={money(sumBy(pendingPayments, (item) => item.total))} help={`${pendingPayments.length} ventas leídas`} tone="warning" />
         <StatCard label="Caja neta hoy" value={money(income - expenses)} help="Ingresos menos egresos" tone="success" />
-        <StatCard label="Movimientos abiertos" value={openCashMovements.length} help={cashWithoutShift.length ? `${cashWithoutShift.length} sin turno` : 'Listos para cierre por turno'} tone={openCashMovements.length ? 'warning' : 'success'} />
+        <StatCard label="Movimientos abiertos" value={openCashMovements.length} help={cashWithoutShift.length ? `${cashWithoutShift.length} sin caja` : 'Listos para cierre de caja'} tone={openCashMovements.length ? 'warning' : 'success'} />
         <StatCard label="Stock crítico" value={lowStock.length} help="Lectura limitada" tone="danger" />
         <StatCard label="Internados" value={openBoarding.length} help="Activos / guardería" tone="info" />
       </div>
@@ -165,10 +165,10 @@ export function DashboardPage() {
       <div className="two-column">
         <article className="panel">
           <div className="panel-title-row">
-            <h2>Turnos de caja de hoy</h2>
-            <ExportButtons title="Turnos de caja de hoy" rows={shiftRows} columns={shiftColumns} summary={summary} fileLabel="turnos-caja-hoy" />
+            <h2>Cajas de hoy</h2>
+            <ExportButtons title="Cajas de hoy" rows={shiftRows} columns={shiftColumns} summary={summary} fileLabel="cajas-hoy" />
           </div>
-          <DataTable rows={shiftRows} columns={shiftColumns} empty="No hay turnos de caja cargados para hoy." />
+          <DataTable rows={shiftRows} columns={shiftColumns} empty="No hay cajas abiertas para hoy." />
         </article>
 
         <article className="panel">

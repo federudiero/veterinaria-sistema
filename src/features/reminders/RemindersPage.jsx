@@ -8,12 +8,13 @@ import { ExportButtons } from '../../components/export/ExportButtons.jsx'
 import { IndividualExportActions } from '../../components/export/IndividualExportActions.jsx'
 import { StatusBadge } from '../../components/ui/StatusBadge.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
+import { usePagedCollection } from '../../hooks/usePagedCollection.js'
 import { useLookups } from '../../hooks/useLookups.js'
-import { useDataControls } from '../../hooks/useDataControls.js'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue.js'
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
-import { buildSearchPayload, normalizeSearchText } from '../../utils/search.js'
+import { buildSearchPayload, normalizeSearchText, searchTextContainsTerms } from '../../utils/search.js'
 import { dateLabel, money, numberValue, todayISO } from '../../utils/formatters.js'
 import {
   DEFAULT_CREDIT_SURCHARGE_PERCENT,
@@ -22,7 +23,7 @@ import {
   paymentLabelWithSurcharge,
 } from '../../utils/salesPricing.js'
 import { patientContactExportColumns } from '../../utils/patientExportColumns.js'
-import { filterOpenShiftsForUser, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
+import { findOpenDailyCashSession, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
 
 const KIND_OPTIONS = ['Recordatorio', 'Venta futura']
 const STATUS_OPTIONS = ['Pendiente', 'Hecho', 'Enviado', 'Respondido', 'Cancelado', 'Venta pendiente', 'Venta cargada']
@@ -143,7 +144,22 @@ function normalizeKind(value) {
 }
 
 export function RemindersPage() {
-  const reminders = useCollection('reminders', { limitCount: 500, orderByField: 'date', orderDirection: 'desc' })
+  const [selectedDate, setSelectedDate] = useState(todayISO())
+  const [monthDate, setMonthDate] = useState(toDateAtNoon(todayISO()))
+  const calendarDays = useMemo(() => buildCalendarDays(monthDate), [monthDate])
+  const monthRange = useMemo(() => ({
+    start: calendarDays[0]?.iso || selectedDate,
+    end: calendarDays.at(-1)?.iso || selectedDate,
+  }), [calendarDays, selectedDate])
+  const reminders = useCollection('reminders', {
+    where: [
+      { field: 'date', op: '>=', value: monthRange.start },
+      { field: 'date', op: '<=', value: monthRange.end },
+    ],
+    limitCount: 300,
+    orderByField: 'date',
+    orderDirection: 'asc',
+  })
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
   const {
     clientOptions,
@@ -156,8 +172,6 @@ export function RemindersPage() {
     patientById,
     productById,
   } = useLookups()
-  const [selectedDate, setSelectedDate] = useState(todayISO())
-  const [monthDate, setMonthDate] = useState(toDateAtNoon(todayISO()))
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
@@ -167,12 +181,25 @@ export function RemindersPage() {
   const [saving, setSaving] = useState(false)
   const formId = useId()
   const feedback = useFeedback()
-  const { hasPermission, user } = useAuth()
+  const { hasPermission } = useAuth()
   const canRead = hasPermission('agenda.read')
   const canWrite = hasPermission('agenda.write')
   const canCreateSale = hasPermission('ventas.write')
 
-  const calendarDays = useMemo(() => buildCalendarDays(monthDate), [monthDate])
+  const debouncedQuery = useDebouncedValue(query, 300)
+  const selectedDayWhere = useMemo(() => [
+    { field: 'date', op: '==', value: selectedDate },
+    ...(statusFilter ? [{ field: 'status', op: '==', value: statusFilter }] : []),
+    ...(categoryFilter ? [{ field: 'category', op: '==', value: categoryFilter }] : []),
+  ], [selectedDate, statusFilter, categoryFilter])
+  const dailyReminders = usePagedCollection('reminders', {
+    searchTerm: debouncedQuery,
+    where: selectedDayWhere,
+    limitCount: 25,
+    orderByField: 'time',
+    orderDirection: 'asc',
+  })
+
   const remindersByDate = useMemo(() => {
     return reminders.items.reduce((acc, item) => {
       const date = item.date || ''
@@ -197,13 +224,11 @@ export function RemindersPage() {
   const forcedCreditSurcharge = isCreditPaymentMethod(form.paymentMethod)
 
   const selectedRows = useMemo(() => {
-    const normalizedQuery = normalizeSearchText(query)
-    return (remindersByDate[selectedDate] || [])
-      .filter((item) => !statusFilter || item.status === statusFilter)
-      .filter((item) => !categoryFilter || (item.category || item.type) === categoryFilter)
-      .filter((item) => !normalizedQuery || rowSearch(item, { clientMap, patientMap }).includes(normalizedQuery))
+    const normalizedQuery = normalizeSearchText(debouncedQuery)
+    return [...dailyReminders.items]
+      .filter((item) => !normalizedQuery || searchTextContainsTerms(rowSearch(item, { clientMap, patientMap }), normalizedQuery))
       .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))
-  }, [remindersByDate, selectedDate, statusFilter, categoryFilter, query, clientMap, patientMap])
+  }, [dailyReminders.items, debouncedQuery, clientMap, patientMap])
 
   const dailySummary = useMemo(() => {
     const allRows = remindersByDate[selectedDate] || []
@@ -214,8 +239,6 @@ export function RemindersPage() {
       loadedSales: allRows.filter((item) => item.saleGenerated || item.status === 'Venta cargada').length,
     }
   }, [remindersByDate, selectedDate])
-
-  const dailyPage = useDataControls(selectedRows)
 
   const columns = [
     { key: 'time', label: 'Hora', render: (row) => row.time || '-' },
@@ -432,8 +455,7 @@ export function RemindersPage() {
   }
 
   function getOperationalShiftForSale(date) {
-    const options = filterOpenShiftsForUser(shifts.items, user, date || todayISO())
-    return options[0] || null
+    return findOpenDailyCashSession(shifts.items, date || todayISO())
   }
 
   async function generateSale(row, paid = true) {
@@ -453,14 +475,14 @@ export function RemindersPage() {
     const saleDate = row.date || todayISO()
     const selectedShift = getOperationalShiftForSale(saleDate)
     if (!selectedShift) {
-      feedback.warning('Para generar una venta desde recordatorio necesitás un turno de caja abierto y asignado para esa fecha.')
+      feedback.warning('Para generar una venta desde recordatorio necesitás una caja del día abierta para esa fecha.')
       return
     }
     const ok = await feedback.confirm({
       title: paid ? 'Generar venta cobrada' : 'Cargar venta pendiente',
       message: paid
-        ? `Se creará la venta en Ventas, el ingreso en Caja y se marcará el recordatorio como venta cargada. Turno: ${shiftOptionLabel(selectedShift)}.`
-        : `Se creará la venta como pendiente/cuenta corriente y se marcará el recordatorio como venta pendiente. Turno: ${shiftOptionLabel(selectedShift)}.`,
+        ? `Se creará la venta en Ventas, el ingreso en Caja y se marcará el recordatorio como venta cargada. Caja: ${shiftOptionLabel(selectedShift)}.`
+        : `Se creará la venta como pendiente/cuenta corriente y se marcará el recordatorio como venta pendiente. Caja: ${shiftOptionLabel(selectedShift)}.`,
       confirmText: paid ? 'Generar venta' : 'Cargar pendiente',
       tone: paid ? 'warning' : 'info',
     })
@@ -482,7 +504,7 @@ export function RemindersPage() {
         creditSurchargePercent: row.creditSurchargePercent || DEFAULT_CREDIT_SURCHARGE_PERCENT,
         paid: paid && method !== 'Cuenta corriente',
         shiftId: selectedShift.id,
-        shiftName: selectedShift.name || '',
+        shiftName: 'Caja del día',
         shiftDate: selectedShift.date || saleDate,
         ...shiftUserPayload(selectedShift),
         stockAffected: Boolean(row.affectStock),
@@ -522,10 +544,11 @@ export function RemindersPage() {
               title={`Recordatorios ${dateLabel(selectedDate)}`}
               subtitle="Recordatorios filtrados por el día seleccionado. Incluye ventas futuras y estados."
               rows={selectedRows}
+              getRows={dailyReminders.fetchAllForExport}
               columns={exportColumns}
               summary={[
                 { label: 'Día', value: dateLabel(selectedDate) },
-                { label: 'Recordatorios visibles', value: selectedRows.length },
+                { label: 'Recordatorios visibles en página', value: selectedRows.length },
               ]}
               fileLabel="recordatorios"
             />
@@ -608,13 +631,13 @@ export function RemindersPage() {
         </aside>
       </div>
 
-      {reminders.error && <div className="alert alert-danger">{reminders.error}</div>}
-      {reminders.loading ? (
+      {(reminders.error || dailyReminders.error) && <div className="alert alert-danger">{reminders.error || dailyReminders.error}</div>}
+      {reminders.loading || dailyReminders.loading ? (
         <div className="panel">Cargando recordatorios...</div>
       ) : (
         <>
           <DataTable
-            rows={dailyPage.rows}
+            rows={selectedRows}
             columns={columns}
             empty={`No hay recordatorios para el ${dateLabel(selectedDate)}.`}
             actions={(row) => (
@@ -639,13 +662,10 @@ export function RemindersPage() {
             )}
           />
           <Pagination
-            page={dailyPage.page}
-            pageCount={dailyPage.pageCount}
-            pageSize={dailyPage.pageSize}
-            onPageChange={dailyPage.setPage}
-            onPageSizeChange={dailyPage.setPageSize}
-            total={dailyPage.total}
-            rawTotal={selectedRows.length}
+            {...dailyReminders}
+            onPageSizeChange={dailyReminders.setPageSize}
+            total={selectedRows.length}
+            limit={dailyReminders.pageSize}
           />
         </>
       )}

@@ -97,6 +97,7 @@ export function ProtectedRoute({ children }) {
 
   if (loading) return <div className="screen-loader">Cargando sistema...</div>
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />
+  if (user.role === 'cliente') return <Navigate to="/portal" replace />
   if (user.active === false) return <PendingAccessScreen user={user} />
   return <InitialSetupGate>{children}</InitialSetupGate>
 }

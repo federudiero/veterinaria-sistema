@@ -31,7 +31,7 @@ export const PERMISSION_GROUPS = [
       ['ventas.write', 'Crear/cobrar/anular ventas'],
       ['caja.read', 'Ver caja y cuentas corrientes'],
       ['caja.write', 'Crear movimientos de caja'],
-      ['caja.close', 'Crear/cerrar turnos y cerrar caja'],
+      ['caja.close', 'Abrir/cerrar cajas del día'],
       ['stock.read', 'Ver productos y stock'],
       ['stock.write', 'Crear/editar productos y stock'],
       ['compras.read', 'Ver proveedores y compras'],
@@ -73,6 +73,7 @@ export const ROLE_LABELS = {
   caja: 'Caja',
   stock: 'Stock / Depósito',
   lectura: 'Solo lectura',
+  cliente: 'Cliente / tutor portal',
   pendiente: 'Pendiente de aprobación',
 }
 
@@ -137,6 +138,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'documentos.read',
     'backup.read',
   ],
+  cliente: [],
   pendiente: [],
 }
 

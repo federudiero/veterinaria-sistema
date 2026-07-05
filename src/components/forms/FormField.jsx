@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { normalizeSearchText } from '../../utils/search.js'
+import { TagSelector } from '../tags/TagSelector.jsx'
 
 function optionValue(option) {
   return option.value ?? option
@@ -38,7 +39,7 @@ export function FormField({ field, value, onChange }) {
   const commonProps = {
     id: field.name,
     name: field.name,
-    value: field.type === 'checkbox' || field.type === 'permissionsChecklist' ? undefined : value ?? '',
+    value: field.type === 'checkbox' || field.type === 'permissionsChecklist' || field.type === 'tagPicker' ? undefined : value ?? '',
     checked: field.type === 'checkbox' ? Boolean(value) : undefined,
     required: field.required,
     placeholder: field.placeholder || '',
@@ -77,6 +78,13 @@ export function FormField({ field, value, onChange }) {
       <span>{field.label}</span>
       {field.type === 'textarea' || field.type === 'permissions' ? (
         <textarea {...commonProps} rows={field.rows || 3} />
+      ) : field.type === 'tagPicker' ? (
+        <TagSelector
+          value={value}
+          options={options}
+          disabled={field.disabled}
+          onChange={(next) => onChange(field.name, next, field)}
+        />
       ) : field.type === 'permissionsChecklist' ? (
         <div className="permissions-grid" role="group" aria-label={field.label}>
           {Object.entries(groupedOptions).map(([group, groupOptions]) => (

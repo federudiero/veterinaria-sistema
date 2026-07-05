@@ -1,4 +1,4 @@
-import React, { useId, useMemo, useState } from 'react'
+import React, { useEffect, useId, useMemo, useState } from 'react'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
 import { Modal } from '../../components/ui/Modal.jsx'
@@ -14,7 +14,7 @@ import { dateLabel, money, numberValue, sumBy, todayISO } from '../../utils/form
 import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
-import { filterOpenShiftsForUser, isUserAssignedToShift, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
+import { findDailyCashSession, findOpenDailyCashSession, isSharedDailyCashSession, shiftOptionLabel, shiftUserPayload, userOperationId, userOperationName } from '../../utils/shifts.js'
 
 const initialForm = { date: todayISO(), shiftId: '', type: 'Ingreso', concept: '', method: 'Efectivo', amount: 0 }
 
@@ -33,28 +33,40 @@ export function CashPage() {
     extraWhere,
   })
   const closures = useCollection('cashClosures', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
-  const globalClosures = useCollection('globalCashClosures', { limitCount: 60, orderByField: 'date', orderDirection: 'desc' })
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const [createdCashSession, setCreatedCashSession] = useState(null)
   const movementFormId = useId()
   const feedback = useFeedback()
   const { hasPermission, user } = useAuth()
   const canWrite = hasPermission('caja.write')
   const canClose = hasPermission('caja.close')
 
-  const shiftOptions = useMemo(() => shifts.items
-    .filter((item) => user?.role === 'admin' || isUserAssignedToShift(item, user))
+  const visibleCashSessions = useMemo(() => [
+    ...shifts.items,
+    ...(createdCashSession ? [createdCashSession] : []),
+  ].filter(Boolean), [createdCashSession, shifts.items])
+  const selectedCashDate = cash.dateFrom || todayISO()
+  const dailyCashSession = useMemo(() => findDailyCashSession(visibleCashSessions, selectedCashDate), [selectedCashDate, visibleCashSessions])
+  const openDailyCashSessionForForm = useMemo(() => findOpenDailyCashSession(visibleCashSessions, form.date), [form.date, visibleCashSessions])
+
+  const shiftOptions = useMemo(() => visibleCashSessions
+    .filter((item) => isSharedDailyCashSession(item))
     .map((item) => ({
       value: item.id,
-      label: `${dateLabel(item.date)} - ${item.name || 'Sin nombre'} (${item.status || 'Abierto'}) · ${item.veterinarianNames?.join(', ') || 'Sin responsable'}`,
-    })), [shifts.items, user])
-  const formShiftOptions = useMemo(() => filterOpenShiftsForUser(shifts.items, user, form.date)
-    .map((item) => ({
-      value: item.id,
-      label: shiftOptionLabel(item),
-    })), [form.date, shifts.items, user])
+      label: `${dateLabel(item.date)} - ${shiftOptionLabel(item)}`,
+    })), [visibleCashSessions])
+  const formShiftOptions = useMemo(() => openDailyCashSessionForForm ? [{
+    value: openDailyCashSessionForForm.id,
+    label: shiftOptionLabel(openDailyCashSessionForForm),
+  }] : [], [openDailyCashSessionForForm])
+
+  useEffect(() => {
+    if (form.shiftId || !formShiftOptions.length) return
+    setForm((current) => ({ ...current, shiftId: formShiftOptions[0].value }))
+  }, [form.shiftId, formShiftOptions])
 
   const openMovements = cash.items.filter((item) => !item.closed && item.status !== 'Anulado')
   const income = sumBy(openMovements.filter((item) => item.type === 'Ingreso'), (item) => item.amount)
@@ -70,7 +82,7 @@ export function CashPage() {
 
   const movementColumns = [
     { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
-    { key: 'shiftName', label: 'Turno', render: (row) => row.shiftName || 'Sin turno' },
+    { key: 'shiftName', label: 'Caja', render: (row) => row.shiftName || 'Sin caja' },
     { key: 'type', label: 'Tipo' },
     { key: 'concept', label: 'Concepto' },
     { key: 'method', label: 'Metodo' },
@@ -82,7 +94,7 @@ export function CashPage() {
 
   const closureColumns = [
     { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
-    { key: 'shiftName', label: 'Turno', render: (row) => row.shiftName || (row.closureType === 'legacy' ? 'Legacy/Sin turno' : '-') },
+    { key: 'shiftName', label: 'Caja', render: (row) => row.shiftName || (row.closureType === 'legacy' ? 'Legacy/Sin caja' : '-') },
     { key: 'income', label: 'Ingresos', render: (row) => money(row.income) },
     { key: 'expenses', label: 'Egresos', render: (row) => money(row.expenses) },
     { key: 'net', label: 'Neto', render: (row) => money(row.net) },
@@ -104,27 +116,63 @@ export function CashPage() {
     setShiftFilter('')
   }
 
+
+  async function openCashSession() {
+    if (!canClose) {
+      feedback.warning('No tenés permiso para abrir cajas del día.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const now = new Date()
+      const startTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      const date = cash.dateFrom || form.date || todayISO()
+      const session = await repository.ensureDailyCashSession({
+        date,
+        startTime,
+        openedBy: userOperationId(user),
+        openedByName: userOperationName(user),
+        notes: 'Caja diaria compartida abierta desde Caja diaria.',
+      })
+      setCreatedCashSession(session)
+      shifts.refresh?.()
+      setForm((current) => ({ ...current, date, shiftId: session.id }))
+      setShiftFilter(session.id)
+      if (session.status === 'Cerrado') {
+        feedback.warning('La caja del día ya existe pero está cerrada. No se pueden registrar movimientos nuevos.')
+      } else {
+        feedback.success(session.created ? 'Caja del día abierta.' : 'Caja del día ya estaba abierta. Se reutiliza la misma caja compartida.')
+      }
+    } catch (error) {
+      feedback.error(error?.message || 'No se pudo abrir la caja del día.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function saveMovement(event) {
     event.preventDefault()
     if (!canWrite) {
       feedback.warning('No tenes permiso para crear movimientos de caja.')
       return
     }
-    const movementShift = shifts.items.find((item) => item.id === form.shiftId)
+    const movementShift = findOpenDailyCashSession(visibleCashSessions, form.date)
     if (!movementShift) {
-      feedback.warning('Seleccioná un turno de caja abierto para el movimiento.')
+      feedback.warning('No hay caja del día abierta. Abrí la caja diaria para poder registrar movimientos.')
       return
     }
     setSaving(true)
     try {
       if (movementShift.status === 'Cerrado') {
-        feedback.warning('No se puede operar sobre un turno cerrado.')
+        feedback.warning('No se puede operar sobre una caja cerrada.')
         return
       }
       await repository.createCashMovementTransaction({
         ...form,
+        shiftId: movementShift.id,
         amount: numberValue(form.amount),
-        shiftName: movementShift.name || '',
+        shiftName: 'Caja del día',
         shiftDate: movementShift.date || form.date,
         ...shiftUserPayload(movementShift),
       })
@@ -144,36 +192,32 @@ export function CashPage() {
       feedback.warning('No tenes permiso para cerrar caja.')
       return
     }
-    const closeShift = shifts.items.find((item) => item.id === shiftFilter)
+    const closeShift = dailyCashSession
     if (!closeShift) {
-      feedback.warning('Seleccioná un turno de caja para cerrar.')
+      feedback.warning('No hay caja del día para cerrar en la fecha seleccionada.')
       return
     }
     const ok = await feedback.confirm({
-      title: 'Cerrar caja del turno',
-      message: 'El cierre será inmutable. Los movimientos abiertos del turno quedarán vinculados al cierre y el turno pasará a Cerrado.',
-      confirmText: 'Cerrar turno',
+      title: 'Cerrar caja del día',
+      message: 'El cierre será inmutable. Todos los movimientos abiertos de la caja diaria compartida quedarán vinculados a este cierre único y la caja pasará a Cerrado.',
+      confirmText: 'Cerrar caja del día',
       tone: 'warning',
     })
     if (!ok) return
     setSaving(true)
     try {
       if (closeShift.status === 'Cerrado') {
-        feedback.warning('Ese turno ya está cerrado.')
-        return
-      }
-      if (user?.role !== 'admin' && !isUserAssignedToShift(closeShift, user)) {
-        feedback.warning('Tu usuario no está asignado al turno de caja seleccionado.')
+        feedback.warning('Esa caja ya está cerrada.')
         return
       }
       await repository.closeCashTransaction({
         date: closeShift.date || cash.dateFrom || todayISO(),
         shiftId: closeShift.id,
-        shiftName: closeShift.name || '',
+        shiftName: 'Caja del día',
         shiftDate: closeShift.date || cash.dateFrom || todayISO(),
         ...shiftUserPayload(closeShift),
       })
-      feedback.success('La caja del turno se cerro correctamente con auditoria.')
+      feedback.success('La caja del día se cerró correctamente con auditoría.')
       cash.refresh?.()
       closures.refresh?.()
       shifts.refresh?.()
@@ -184,43 +228,17 @@ export function CashPage() {
     }
   }
 
-  async function closeGlobalCash() {
-    if (!canClose) {
-      feedback.warning('No tenes permiso para cierre global.')
-      return
-    }
-    const date = cash.dateFrom || todayISO()
-    const ok = await feedback.confirm({
-      title: 'Cerrar caja global diaria',
-      message: `Se consolidaran los cierres de turno del dia ${date}. No debe haber turnos abiertos.`,
-      confirmText: 'Cerrar global',
-      tone: 'warning',
-    })
-    if (!ok) return
-    setSaving(true)
-    try {
-      await repository.closeGlobalCashTransaction({ date })
-      feedback.success('El cierre global diario se genero correctamente.')
-      closures.refresh?.()
-      globalClosures.refresh?.()
-    } catch (error) {
-      feedback.error(error?.message || 'No se pudo cerrar la caja global.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
     <section>
       <SectionHeader
         eyebrow="Administracion"
-        title="Caja por turno de caja"
-        description="Caja transaccional por turno operativo: movimientos, ventas cobradas, cierre por responsable y cierre global diario consolidado."
+        title="Caja diaria"
+        description="Movimientos, ventas cobradas, egresos y cierre de la caja diaria compartida. Cada venta y movimiento conserva el usuario que lo registró."
         actions={
           <>
             <ExportButtons
               title="Movimientos de caja"
-              subtitle="Movimientos filtrados con turno, tipo, metodo, importe, estado y cierre."
+              subtitle="Movimientos filtrados con caja, tipo, método, importe, estado y cierre."
               rows={cash.items}
               getRows={cash.fetchAllForExport}
               columns={movementColumns}
@@ -231,8 +249,8 @@ export function CashPage() {
               ]}
               fileLabel="movimientos-caja"
             />
-            {canClose && <button className="btn" onClick={closeGlobalCash} disabled={saving}>{saving ? 'Procesando...' : 'Cierre global'}</button>}
-            {canClose && <button className="btn" onClick={closeCash} disabled={saving || openMovements.length === 0}>{saving ? 'Procesando...' : 'Cerrar turno'}</button>}
+            {canClose && <button className="btn" onClick={openCashSession} disabled={saving}>{saving ? 'Procesando...' : 'Abrir caja del día'}</button>}
+            {canClose && <button className="btn" onClick={closeCash} disabled={saving || !dailyCashSession || dailyCashSession.status === 'Cerrado'}>{saving ? 'Procesando...' : 'Cerrar caja del día'}</button>}
             {canWrite && <button className="btn btn-primary" onClick={() => setModalOpen(true)}>Nuevo movimiento</button>}
           </>
         }
@@ -271,7 +289,7 @@ export function CashPage() {
           />
           <div className="panel compact-card">
             <label className="field">
-              <span>Turno de caja</span>
+              <span>Caja</span>
               <select value={shiftFilter} onChange={(event) => setShiftFilter(event.target.value)}>
                 <option value="">Todos</option>
                 {shiftOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -287,28 +305,20 @@ export function CashPage() {
         </article>
         <article className="panel">
           <div className="panel-title-row">
-            <h2>Cierres</h2>
+            <h2>Cierres de caja diaria</h2>
             <ExportButtons
-              title="Cierres de caja"
-              subtitle="Historial de cierres con turno, ingresos, egresos, neto y cantidad de movimientos incluidos."
+              title="Cierres de caja diaria"
+              subtitle="Historial del cierre único de caja diaria compartida, con ingresos, egresos, neto y movimientos incluidos."
               rows={closures.items}
               columns={closureColumns}
-              summary={[{ label: 'Cierres', value: closures.items.length }]}
-              fileLabel="cierres-caja"
+              summary={[{ label: 'Cierres de caja diaria', value: closures.items.length }]}
+              fileLabel="cierres-caja-diaria"
             />
           </div>
           <DataTable
             rows={closures.items}
             columns={closureColumns}
             actions={(row) => <IndividualExportActions row={row} columns={closureColumns} title="Cierre de caja" fileLabel="cierre-caja" />}
-          />
-          <div className="panel-title-row section-subtitle">
-            <h2>Cierres globales</h2>
-          </div>
-          <DataTable
-            rows={globalClosures.items}
-            columns={closureColumns}
-            actions={(row) => <IndividualExportActions row={row} columns={closureColumns} title="Cierre global" fileLabel="cierre-global" />}
           />
         </article>
       </div>
@@ -330,13 +340,22 @@ export function CashPage() {
               onChange={handleChange}
               fields={[
                 { name: 'date', label: 'Fecha', type: 'date' },
-                { name: 'shiftId', label: 'Turno de caja abierto', type: 'select', options: formShiftOptions, required: true, hint: formShiftOptions.length ? 'Solo aparecen turnos abiertos asignados a tu usuario.' : 'No hay turnos de caja abiertos/asignados para la fecha seleccionada.' },
                 { name: 'type', label: 'Tipo', type: 'select', options: ['Ingreso', 'Egreso'] },
                 { name: 'concept', label: 'Concepto', required: true },
                 { name: 'method', label: 'Metodo', type: 'select', options: ['Efectivo', 'Transferencia', 'Debito', 'Credito', 'Otro'] },
                 { name: 'amount', label: 'Importe', type: 'number' },
               ]}
             />
+            {!openDailyCashSessionForForm && (
+              <div className="system-card system-card-warning compact-card">
+                <strong>No hay caja del día abierta.</strong> Abrí la caja diaria para poder registrar movimientos.
+                {canClose && (
+                  <button className="btn btn-small" type="button" onClick={openCashSession} disabled={saving}>
+                    Abrir caja del día
+                  </button>
+                )}
+              </div>
+            )}
           </form>
         </Modal>
       )}

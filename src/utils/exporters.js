@@ -1,5 +1,12 @@
 const DEFAULT_SYSTEM_NAME = 'Sistema Veterinaria'
 
+function todayLocalISO(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -291,7 +298,7 @@ export function downloadExcelReport({ title, subtitle, rows = [], columns = [], 
   const generatedAt = new Date().toLocaleString('es-AR')
   const clinicName = safeClinicName(clinic.clinicName)
   const worksheetRows = buildRows(rows, normalizedColumns)
-  const filename = `${slugify(fileLabel || title)}-${new Date().toISOString().slice(0, 10)}.xls`
+  const filename = `${slugify(fileLabel || title)}-${todayLocalISO()}.xls`
   const colspan = Math.max(normalizedColumns.length, 1)
 
   const headerRows = `

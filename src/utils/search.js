@@ -16,6 +16,17 @@ export function onlyDigits(value) {
   return String(value ?? '').replace(/\D+/g, '')
 }
 
+export function primarySearchToken(value) {
+  const normalized = normalizeSearchText(value)
+  if (!normalized) return ''
+  const tokens = normalized
+    .split(' ')
+    .map((token) => token.trim())
+    .filter((token) => token.length >= TOKEN_MIN)
+  if (!tokens.length) return normalized.slice(0, TOKEN_MAX)
+  return [...tokens].sort((a, b) => b.length - a.length)[0].slice(0, TOKEN_MAX)
+}
+
 function addPrefixes(target, rawToken) {
   const token = normalizeSearchText(rawToken)
   if (!token || token.length < TOKEN_MIN) return
@@ -23,6 +34,17 @@ function addPrefixes(target, rawToken) {
   for (let i = TOKEN_MIN; i <= capped.length; i += 1) {
     target.add(capped.slice(0, i))
   }
+}
+
+
+export function searchTextContainsTerms(searchText, term, tokens = []) {
+  const normalizedTerm = normalizeSearchText(term)
+  if (!normalizedTerm) return true
+  const normalizedSearchText = normalizeSearchText(searchText)
+  if (normalizedSearchText.includes(normalizedTerm)) return true
+  const parts = normalizedTerm.split(' ').filter((item) => item.length >= TOKEN_MIN)
+  if (!parts.length) return true
+  return parts.every((part) => normalizedSearchText.includes(part) || tokens.includes(part))
 }
 
 function flattenPrimitiveValues(value, output = []) {
@@ -73,7 +95,7 @@ export function matchesSearch(payload, term, fields = []) {
   if (tokens.includes(normalizedTerm)) return true
 
   const searchText = payload?.searchText || buildSearchPayload(payload, fields).searchText
-  if (searchText.includes(normalizedTerm)) return true
+  if (searchTextContainsTerms(searchText, normalizedTerm, tokens)) return true
 
   const digits = onlyDigits(term)
   if (digits.length >= TOKEN_MIN) {

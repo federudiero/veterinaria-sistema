@@ -12,6 +12,7 @@ const blockedRepository = {
   async fetchCollectionForExport() { throw new Error(firebaseStartupError || 'Repositorio no disponible.') },
   async getCollectionCount() { throw new Error(firebaseStartupError || 'Repositorio no disponible.') },
   async createDocument() { throw new Error(firebaseStartupError || 'Repositorio no disponible.') },
+  async ensureDailyCashSession() { throw new Error(firebaseStartupError || 'Repositorio no disponible.') },
   async setDocument() { throw new Error(firebaseStartupError || 'Repositorio no disponible.') },
   async updateDocument() { throw new Error(firebaseStartupError || 'Repositorio no disponible.') },
   async deleteDocument() { throw new Error(firebaseStartupError || 'Repositorio no disponible.') },

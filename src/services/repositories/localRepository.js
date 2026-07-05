@@ -19,7 +19,11 @@ function nowISO() {
 }
 
 function todayISO() {
-  return nowISO().slice(0, 10)
+  const value = new Date()
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function numberValue(value) {
@@ -31,27 +35,36 @@ function actorPayload() {
   return { userUid: 'local-demo', userEmail: 'demo@sistema-veterinaria.local' }
 }
 
+function isSharedDailyCashSession(shift = {}) {
+  return shift.cashSessionScope === 'sharedDaily' || shift.sharedDaily === true || String(shift.id || shift.shiftId || '').startsWith('daily_')
+}
+
+function dailyCashSessionDocumentId(date = '') {
+  return `daily_${date || todayISO()}`
+}
+
 function shiftPayload(input = {}) {
   const resolvedShiftId = input.shiftId || input.id || ''
+  const isShared = isSharedDailyCashSession({ ...input, id: resolvedShiftId })
   return {
     shiftId: resolvedShiftId,
-    shiftName: input.shiftName || input.name || (resolvedShiftId ? 'Sin nombre' : 'Sin turno'),
+    shiftName: isShared ? 'Caja del día' : input.shiftName || input.name || (resolvedShiftId ? 'Caja sin nombre' : 'Sin caja'),
     shiftDate: input.shiftDate || input.date || todayISO(),
-    veterinarianIds: Array.isArray(input.veterinarianIds) ? input.veterinarianIds : [],
-    veterinarianNames: Array.isArray(input.veterinarianNames) ? input.veterinarianNames : [],
+    veterinarianIds: isShared ? [] : Array.isArray(input.veterinarianIds) ? input.veterinarianIds : [],
+    veterinarianNames: isShared ? [] : Array.isArray(input.veterinarianNames) ? input.veterinarianNames : [],
   }
 }
 
 function assertOpenShift(state, input = {}) {
   if (!input.shiftId) return null
   const shift = (state.shifts || []).find((item) => item.id === input.shiftId)
-  if (!shift) throw new Error('El turno seleccionado ya no existe.')
-  if (shift.status === 'Cerrado') throw new Error('No se puede operar sobre un turno cerrado.')
+  if (!shift) throw new Error('La caja seleccionada ya no existe.')
+  if (shift.status === 'Cerrado') throw new Error('No se puede operar sobre una caja cerrada.')
   return shift
 }
 
 function assertRequiredOpenShift(state, input = {}) {
-  if (!input.shiftId) throw new Error('Seleccioná un turno de caja abierto antes de operar.')
+  if (!input.shiftId) throw new Error('Seleccioná una caja abierta antes de operar.')
   return assertOpenShift(state, input)
 }
 
@@ -106,6 +119,7 @@ function applyFilters(data, options = {}) {
         if (op === '<') return item[field] < value
         if (op === '<=') return item[field] <= value
         if (op === 'in') return Array.isArray(value) && value.includes(item[field])
+        if (op === 'array-contains') return Array.isArray(item[field]) && item[field].includes(value)
         return true
       })
     })
@@ -262,6 +276,53 @@ export async function setDocument(collectionName, id, payload) {
   return id
 }
 
+
+export async function ensureDailyCashSession(input = {}) {
+  const state = readState()
+  const now = nowISO()
+  const date = input.date || todayISO()
+  const id = dailyCashSessionDocumentId(date)
+  const existing = (state.shifts || []).find((item) => item.id === id)
+
+  if (existing) return { ...clone(existing), existing: true }
+
+  const actor = actorPayload()
+  const item = indexDocument({
+    id,
+    date,
+    name: 'Caja del día',
+    cashSessionScope: 'sharedDaily',
+    sharedDaily: true,
+    startTime: input.startTime || '',
+    endTime: input.endTime || '',
+    veterinarianIds: [],
+    veterinarianNames: [],
+    cashierIds: [],
+    cashierNames: [],
+    responsibleUserIds: [],
+    responsibleUserNames: [],
+    openedBy: input.openedBy || actor.userUid,
+    openedByName: input.openedByName || actor.userEmail,
+    status: 'Abierto',
+    notes: input.notes || 'Caja diaria compartida para todo el negocio.',
+    createdAt: now,
+    updatedAt: now,
+    ...actor,
+  })
+
+  state.shifts = [item, ...(state.shifts || [])]
+  addAudit(state, {
+    module: 'shifts',
+    action: 'cash.daily.ensure',
+    entityId: id,
+    summary: `Apertura de caja diaria compartida ${date}`,
+    after: item,
+  })
+  writeState(state)
+  emitMany(['shifts', 'auditLogs'])
+  return { ...clone(item), created: true }
+}
+
 export async function updateDocument(collectionName, id, payload) {
   const state = readState()
   const now = nowISO()
@@ -356,6 +417,8 @@ export async function createSaleTransaction(input) {
     paymentStatus: paid ? 'Pagada' : 'Pendiente',
     status: 'Activa',
     notes: input.notes || '',
+    tagIds: Array.isArray(input.tagIds) ? input.tagIds : [],
+    tagNames: Array.isArray(input.tagNames) ? input.tagNames : [],
     cashMovementId: cashId,
     currentAccountId: accountId,
     stockMovementIds: stockMovementId ? [stockMovementId] : [],
@@ -499,6 +562,8 @@ export async function createReminderSaleTransaction(input) {
     paymentStatus: paid ? 'Pagada' : 'Pendiente',
     status: 'Activa',
     notes: input.notes || '',
+    tagIds: Array.isArray(input.tagIds) ? input.tagIds : [],
+    tagNames: Array.isArray(input.tagNames) ? input.tagNames : [],
     origin: 'recordatorio',
     sourceReminderId: input.reminderId || '',
     cashMovementId: cashId,
@@ -887,7 +952,7 @@ export async function createCashMovementTransaction(input) {
 export async function closeCashTransaction(input = {}) {
   const state = readState()
   const now = nowISO()
-  if (!input.shiftId) throw new Error('Seleccioná un turno de caja para cerrar.')
+  if (!input.shiftId) throw new Error('Seleccioná una caja para cerrar.')
   const date = input.date || todayISO()
   const shift = assertRequiredOpenShift(state, input)
   const id = `closure_${date}_${input.shiftId}`
@@ -896,7 +961,6 @@ export async function closeCashTransaction(input = {}) {
     if (item.closed === true || item.status === 'Anulado') return false
     return input.shiftId ? item.shiftId === input.shiftId : item.date === date
   })
-  if (openMovements.length === 0) throw new Error('No hay movimientos abiertos para cerrar.')
   const income = openMovements.filter((item) => item.type === 'Ingreso').reduce((acc, item) => acc + numberValue(item.amount), 0)
   const expenses = openMovements.filter((item) => item.type === 'Egreso').reduce((acc, item) => acc + numberValue(item.amount), 0)
   const byMethod = openMovements.reduce((acc, item) => {
@@ -904,6 +968,8 @@ export async function closeCashTransaction(input = {}) {
     acc[key] = (acc[key] || 0) + (item.type === 'Ingreso' ? numberValue(item.amount) : -numberValue(item.amount))
     return acc
   }, {})
+  const actor = actorPayload()
+  const isSharedDailyClosure = isSharedDailyCashSession({ ...input, ...(shift || {}), id: input.shiftId })
   const closure = indexDocument({
     id,
     date,
@@ -914,16 +980,19 @@ export async function closeCashTransaction(input = {}) {
     movementIds: openMovements.map((item) => item.id),
     movementCount: openMovements.length,
     status: 'Cerrado',
-    closureType: 'shift',
+    closureType: isSharedDailyClosure ? 'daily' : 'shift',
+    closedAt: now,
+    closedBy: actor.userUid,
+    closedByName: input.closedByName || actor.userEmail,
     ...shiftPayload({ ...input, ...(shift || {}) }),
     createdAt: now,
     updatedAt: now,
-    ...actorPayload(),
+    ...actor,
   })
   state.cashClosures = [closure, ...(state.cashClosures || [])]
   state.cashMovements = state.cashMovements.map((item) => openMovements.some((open) => open.id === item.id) ? indexDocument({ ...item, closed: true, closureId: id, shiftClosureId: id, closedAt: now, updatedAt: now }) : item)
   if (input.shiftId) {
-    state.shifts = (state.shifts || []).map((item) => item.id === input.shiftId ? indexDocument({ ...item, status: 'Cerrado', closedAt: now, closedBy: actorPayload().userUid, shiftClosureId: id, updatedAt: now }) : item)
+    state.shifts = (state.shifts || []).map((item) => item.id === input.shiftId ? indexDocument({ ...item, status: 'Cerrado', closedAt: now, closedBy: actor.userUid, closedByName: input.closedByName || actor.userEmail, shiftClosureId: id, updatedAt: now }) : item)
   }
   addAudit(state, { module: 'cashClosures', action: 'cash.shift.close.transaction', entityId: id, summary: `Cierre de caja ${date}: neto ${income - expenses}`, after: closure, severity: 'warning' })
   writeState(state)
@@ -936,14 +1005,14 @@ export async function closeGlobalCashTransaction(input = {}) {
   const now = nowISO()
   const date = input.date || todayISO()
   const id = `global_${date}`
-  if ((state.globalCashClosures || []).some((item) => item.id === id)) throw new Error(`Ya existe un cierre global para ${date}.`)
+  if ((state.globalCashClosures || []).some((item) => item.id === id)) throw new Error(`Ya existe un cierre del día para ${date}.`)
   const shifts = (state.shifts || []).filter((item) => item.date === date)
-  const openShifts = shifts.filter((item) => item.status !== 'Cerrado')
-  if (openShifts.length) throw new Error('No se puede cerrar el día: hay turnos de caja abiertos.')
+  const openShifts = shifts.filter((item) => isSharedDailyCashSession(item) && item.status !== 'Cerrado')
+  if (openShifts.length) throw new Error('No se puede cerrar el día: hay cajas abiertas.')
   const openMovements = (state.cashMovements || []).filter((item) => item.date === date && item.closed !== true && item.status !== 'Anulado')
-  if (openMovements.length) throw new Error('No se puede cerrar el día: quedan movimientos de caja abiertos o sin cierre de turno.')
+  if (openMovements.length) throw new Error('No se puede cerrar el día: quedan movimientos de caja abiertos o sin cierre de caja.')
   const closures = (state.cashClosures || []).filter((item) => item.date === date)
-  if (!closures.length) throw new Error('No hay cierres de turno para consolidar.')
+  if (!closures.length) throw new Error('No hay cierres de caja para consolidar.')
   const income = closures.reduce((acc, item) => acc + numberValue(item.income), 0)
   const expenses = closures.reduce((acc, item) => acc + numberValue(item.expenses), 0)
   const byMethod = closures.reduce((acc, item) => {
@@ -971,7 +1040,7 @@ export async function closeGlobalCashTransaction(input = {}) {
   })
   state.globalCashClosures = [closure, ...(state.globalCashClosures || [])]
   state.cashClosures = (state.cashClosures || []).map((item) => item.date === date ? indexDocument({ ...item, globalClosureId: id, updatedAt: now }) : item)
-  addAudit(state, { module: 'globalCashClosures', action: 'cash.global.close.transaction', entityId: id, summary: `Cierre global ${date}: neto ${income - expenses}`, after: closure, severity: 'warning' })
+  addAudit(state, { module: 'globalCashClosures', action: 'cash.global.close.transaction', entityId: id, summary: `Cierre del día ${date}: neto ${income - expenses}`, after: closure, severity: 'warning' })
   writeState(state)
   emitMany(['globalCashClosures', 'cashClosures', 'auditLogs'])
   return id

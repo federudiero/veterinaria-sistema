@@ -45,6 +45,9 @@ export function BoardingPage() {
       searchPlaceholder="Buscar internación por paciente, cliente, teléfono, canil, estado, medicación o alimentación..."
       beforeSave={normalizeLookupPayload}
       exportColumns={exportColumns}
+      dateField="startDate"
+      defaultOrderByField="startDate"
+      defaultOrderDirection="desc"
       initialValues={{ patientId: '', clientId: '', room: '', startDate: todayISO(), endDate: '', status: 'Internado', feeding: '', medication: '', amount: 0, paid: false, notes: '' }}
       fields={[
         { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
@@ -59,6 +62,7 @@ export function BoardingPage() {
         { name: 'paid', label: 'Pagado', type: 'checkbox' },
         { name: 'notes', label: 'Notas', type: 'textarea' },
       ]}
+      enableTags
       columns={columns}
     />
   )

@@ -22,6 +22,7 @@ export function ClientsPage() {
         { name: 'segment', label: 'Segmento', type: 'select', options: ['Nuevo', 'Frecuente', 'Cuenta corriente', 'VIP', 'Inactivo'] },
         { name: 'notes', label: 'Notas', type: 'textarea' },
       ]}
+      enableTags
       columns={[
         { key: 'name', label: 'Cliente' },
         { key: 'phone', label: 'Teléfono' },
