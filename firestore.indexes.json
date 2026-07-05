@@ -1273,16 +1273,6 @@
       ]
     },
     {
-      "collectionGroup": "tags",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "name",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "clients",
       "queryScope": "COLLECTION",
       "fields": [
@@ -1663,6 +1653,20 @@
         {
           "fieldPath": "time",
           "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "auditLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "searchTokens",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
         }
       ]
     }

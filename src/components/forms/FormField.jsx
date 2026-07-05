@@ -18,10 +18,14 @@ function normalizeArray(value) {
     .filter(Boolean)
 }
 
-export function FormField({ field, value, onChange }) {
+export function FormField({ field, value, form = {}, onChange }) {
   const [optionFilter, setOptionFilter] = useState('')
   const options = field.options || []
+  const fieldContext = { field, value, form }
   const selectedOption = options.find((option) => String(optionValue(option)) === String(value ?? ''))
+  const resolvedHint = typeof field.hint === 'function' ? field.hint(fieldContext) : field.hint
+  const resolvedDisabled = typeof field.disabled === 'function' ? field.disabled(fieldContext) : field.disabled
+  const resolvedReadOnly = typeof field.readOnly === 'function' ? field.readOnly(fieldContext) : field.readOnly
 
   const visibleOptions = useMemo(() => {
     if (field.type !== 'select') return options
@@ -43,8 +47,8 @@ export function FormField({ field, value, onChange }) {
     checked: field.type === 'checkbox' ? Boolean(value) : undefined,
     required: field.required,
     placeholder: field.placeholder || '',
-    readOnly: field.readOnly,
-    disabled: field.disabled,
+    readOnly: resolvedReadOnly,
+    disabled: resolvedDisabled,
     min: field.min,
     max: field.max,
     step: field.step,
@@ -66,6 +70,7 @@ export function FormField({ field, value, onChange }) {
   }, [options])
 
   function togglePermission(permission) {
+    if (resolvedDisabled) return
     const exists = selectedPermissions.includes(permission)
     const next = exists
       ? selectedPermissions.filter((item) => item !== permission)
@@ -82,7 +87,7 @@ export function FormField({ field, value, onChange }) {
         <TagSelector
           value={value}
           options={options}
-          disabled={field.disabled}
+          disabled={resolvedDisabled}
           onChange={(next) => onChange(field.name, next, field)}
         />
       ) : field.type === 'permissionsChecklist' ? (
@@ -98,6 +103,7 @@ export function FormField({ field, value, onChange }) {
                     type="button"
                     className={`permission-chip ${selectedPermissions.includes(valueOption) ? 'active' : ''}`}
                     onClick={() => togglePermission(valueOption)}
+                    disabled={resolvedDisabled}
                   >
                     <span className="permission-check">{selectedPermissions.includes(valueOption) ? '✓' : '+'}</span>
                     {optionLabel(option)}
@@ -134,7 +140,7 @@ export function FormField({ field, value, onChange }) {
       ) : (
         <input {...commonProps} type={field.type || 'text'} />
       )}
-      {field.hint && <small className="field-hint">{field.hint}</small>}
+      {resolvedHint && <small className="field-hint">{resolvedHint}</small>}
     </label>
   )
 }

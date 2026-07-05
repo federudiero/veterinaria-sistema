@@ -138,12 +138,30 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'documentos.read',
     'backup.read',
   ],
+  // Seguridad: el portal NO usa permisos internos. Se limita por role === 'cliente' + clientId/clientIds
+  // en PatientPortalRoute, PatientPortalPage y firestore.rules. No agregar clientes.read/pacientes.read acá,
+  // porque abriría lectura global desde reglas por hasPermission().
   cliente: [],
   pendiente: [],
 }
 
+export const ROLE_ACCESS_DESCRIPTIONS = {
+  admin: 'Acceso total al sistema. En Firestore se guarda como rol administrador; no depende del checklist.',
+  veterinario: 'Atiende pacientes: ve clientes, pacientes, historia clínica, vacunas, recetas, internación, agenda, reportes y documentos. Puede crear/editar datos clínicos y agenda.',
+  recepcion: 'Opera mesa de entrada: crea clientes y pacientes, agenda turnos, carga ventas, consulta caja y genera documentos.',
+  caja: 'Opera ventas y caja: ve clientes/pacientes, crea o cobra ventas, registra movimientos, abre/cierra cajas, consulta reportes y documentos.',
+  stock: 'Gestiona depósito: ve y edita productos/stock, proveedores y compras. También consulta reportes.',
+  lectura: 'Solo lectura operativa: puede consultar clientes, pacientes, clínica, agenda, ventas, caja, stock, compras, internación, mutualismo, reportes, configuración, documentos y respaldo. No edita.',
+  cliente: 'Portal de paciente/tutor: solo entra a /portal y ve sus propios pacientes, historias, vacunas, recetas y turnos vinculados por Cliente vinculado para portal. No recibe permisos internos del sistema por seguridad.',
+  pendiente: 'Sin acceso operativo. Se usa para solicitudes pendientes de aprobación.',
+}
+
 export function getRolePermissions(role) {
   return DEFAULT_ROLE_PERMISSIONS[role] || []
+}
+
+export function getRoleAccessDescription(role) {
+  return ROLE_ACCESS_DESCRIPTIONS[role] || 'Seleccioná un rol para ver el alcance operativo sugerido.'
 }
 
 export function normalizePermissions(value) {

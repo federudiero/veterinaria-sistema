@@ -192,8 +192,17 @@ export function CrudPage({
     setModalOpen(true)
   }
 
-  function handleChange(name, value) {
-    setForm((current) => ({ ...current, [name]: value }))
+  function handleChange(name, value, field) {
+    setForm((current) => {
+      let next = { ...current, [name]: value }
+
+      if (typeof field?.onChange === 'function') {
+        const patch = field.onChange({ value, form: next, previousForm: current, field })
+        if (patch && typeof patch === 'object') next = { ...next, ...patch }
+      }
+
+      return next
+    })
   }
 
   async function handleSubmit(event) {
