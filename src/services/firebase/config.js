@@ -13,7 +13,7 @@ export const TENANT_ID = import.meta.env.VITE_FIREBASE_TENANT_ID || 'defaultVet'
 export const USE_FIREBASE = import.meta.env.VITE_USE_FIREBASE === 'true' || REQUIRE_FIREBASE
 export const USE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true'
 
-const requiredFirebaseKeys = ['apiKey', 'authDomain', 'projectId', 'appId']
+const requiredFirebaseKeys = ['apiKey', 'authDomain', 'projectId', 'appId', 'storageBucket']
 export const missingFirebaseConfigKeys = requiredFirebaseKeys.filter((key) => !firebaseConfig[key])
 
 export const hasFirebaseConfig = missingFirebaseConfigKeys.length === 0

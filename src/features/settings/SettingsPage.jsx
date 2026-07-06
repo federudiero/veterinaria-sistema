@@ -6,21 +6,66 @@ import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { navigation } from '../../data/navigation.js'
 
-const QUICK_SALE_PATH = '/venta-rapida'
-const NAVBAR_ITEMS = navigation.filter((item) => item.path !== QUICK_SALE_PATH)
+const LEGACY_NAV_PATH_ALIASES = {
+  '/turnos-caja': '/ventas-caja',
+  '/cajas-del-dia': '/ventas-caja',
+  '/venta-rapida': '/ventas-caja',
+  '/ventas': '/ventas-caja',
+  '/cuentas-corrientes': '/ventas-caja',
+  '/caja': '/ventas-caja',
+  '/recordatorios': '/agenda',
+  '/cola-espera': '/agenda',
+  '/turnos-veterinarios': '/agenda',
+  '/productos-stock': '/compras',
+  '/proveedores': '/compras',
+  '/compras-futuras': '/compras',
+  '/documentos': '/sistema',
+  '/respaldo': '/sistema',
+  '/usuarios': '/sistema',
+  '/auditoria': '/sistema',
+  '/etiquetas': '/sistema',
+  '/configuracion': '/sistema',
+  '/historia-clinica': '/pacientes',
+  '/vacunas': '/pacientes',
+  '/recetas': '/pacientes',
+}
+const NAVBAR_ITEMS = navigation
 const DEFAULT_NAV_ORDER = NAVBAR_ITEMS.map((item) => item.path)
+
+function normalizeStoredNavPath(path) {
+  return LEGACY_NAV_PATH_ALIASES[path] || path
+}
 
 function normalizeNavOrder(value) {
   const saved = Array.isArray(value) ? value : []
-  return [
-    ...saved.filter((path) => DEFAULT_NAV_ORDER.includes(path)),
-    ...DEFAULT_NAV_ORDER.filter((path) => !saved.includes(path)),
-  ]
+  const normalized = []
+
+  saved.forEach((path) => {
+    const nextPath = normalizeStoredNavPath(path)
+    if (!DEFAULT_NAV_ORDER.includes(nextPath) || normalized.includes(nextPath)) return
+    normalized.push(nextPath)
+  })
+
+  DEFAULT_NAV_ORDER.forEach((path) => {
+    if (normalized.includes(path)) return
+
+    const nextDefaultPath = DEFAULT_NAV_ORDER.find((candidate) => {
+      return DEFAULT_NAV_ORDER.indexOf(candidate) > DEFAULT_NAV_ORDER.indexOf(path) && normalized.includes(candidate)
+    })
+
+    if (nextDefaultPath) {
+      normalized.splice(normalized.indexOf(nextDefaultPath), 0, path)
+    } else {
+      normalized.push(path)
+    }
+  })
+
+  return normalized
 }
 
 function labelForPath(path) {
   const item = navigation.find((entry) => entry.path === path)
-  return item ? `${item.icon} ${item.label}` : path
+  return item ? item.label : path
 }
 
 function sanitizeColor(value) {

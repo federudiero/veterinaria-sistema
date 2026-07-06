@@ -4,7 +4,7 @@ import { useLookups } from '../../hooks/useLookups.js'
 import { dateLabel, money, numberValue, todayISO } from '../../utils/formatters.js'
 
 export function FuturePurchasesPage() {
-  const { clientOptions, patientOptions, supplierOptions, clientMap, patientMap, supplierMap } = useLookups()
+  const { clientOptions, patientOptionsForClient, supplierOptions, clientMap, patientMap, supplierMap } = useLookups()
 
   const columns = [
     { key: 'date', label: 'Pedido', render: (row) => dateLabel(row.date) },
@@ -80,8 +80,8 @@ export function FuturePurchasesPage() {
       fields={[
         { name: 'date', label: 'Fecha del pedido', type: 'date', required: true },
         { name: 'neededDate', label: 'Fecha prometida / retiro', type: 'date', required: true },
-        { name: 'clientId', label: 'Cliente existente', type: 'select', options: clientOptions, hint: 'Opcional. Si no está cargado, completá nombre y teléfono abajo.' },
-        { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions },
+        { name: 'clientId', label: 'Cliente existente', type: 'select', options: clientOptions, searchPlaceholder: 'Buscar tutor...', hint: 'Opcional. Si no está cargado, completá nombre y teléfono abajo.', onChange: () => ({ patientId: '' }) },
+        { name: 'patientId', label: 'Paciente', type: 'select', options: ({ form }) => patientOptionsForClient(form.clientId, form.patientId), disabled: ({ form }) => !form.clientId, searchPlaceholder: 'Buscar paciente del tutor...', hint: ({ form }) => form.clientId ? 'Solo se muestran pacientes del tutor seleccionado.' : 'Primero seleccioná un tutor.' },
         { name: 'clientName', label: 'Nombre cliente manual' },
         { name: 'clientPhone', label: 'Teléfono / WhatsApp' },
         { name: 'productName', label: 'Producto encargado', required: true, placeholder: 'Ej: alimento 15 kg cerrado adulto...' },

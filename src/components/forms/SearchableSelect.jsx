@@ -37,7 +37,7 @@ export function SearchableSelect({
   return (
     <label className="field searchable-select-field">
       <span>{label}</span>
-      {options.length > 12 && (
+      {options.length > 0 && (
         <input
           className="select-filter"
           value={query}

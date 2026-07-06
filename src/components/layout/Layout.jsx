@@ -4,11 +4,70 @@ import { navigation } from '../../data/navigation.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
 import { APP_VERSION } from '../../config/runtime.js'
+import { NotificationBell } from '../notifications/NotificationBell.jsx'
+import { AppIcon } from '../icons/AppIcon.jsx'
 
-const QUICK_SALE_PATH = '/venta-rapida'
+const QUICK_SALE_PATH = '/ventas-caja?tab=venta-rapida'
+const LEGACY_NAV_PATH_ALIASES = {
+  '/turnos-caja': '/ventas-caja',
+  '/cajas-del-dia': '/ventas-caja',
+  '/venta-rapida': '/ventas-caja',
+  '/ventas': '/ventas-caja',
+  '/cuentas-corrientes': '/ventas-caja',
+  '/caja': '/ventas-caja',
+  '/recordatorios': '/agenda',
+  '/cola-espera': '/agenda',
+  '/turnos-veterinarios': '/agenda',
+  '/productos-stock': '/compras',
+  '/proveedores': '/compras',
+  '/compras-futuras': '/compras',
+  '/documentos': '/sistema',
+  '/respaldo': '/sistema',
+  '/usuarios': '/sistema',
+  '/auditoria': '/sistema',
+  '/etiquetas': '/sistema',
+  '/configuracion': '/sistema',
+  '/historia-clinica': '/pacientes',
+  '/vacunas': '/pacientes',
+  '/recetas': '/pacientes',
+}
+
+function normalizeStoredNavPath(path) {
+  return LEGACY_NAV_PATH_ALIASES[path] || path
+}
+
+function normalizeNavigationOrder(navOrder = [], allowedPaths = []) {
+  const saved = Array.isArray(navOrder) ? navOrder : []
+  const allowed = new Set(allowedPaths)
+  const normalized = []
+
+  saved.forEach((path) => {
+    const nextPath = normalizeStoredNavPath(path)
+    if (!allowed.has(nextPath) || normalized.includes(nextPath)) return
+    normalized.push(nextPath)
+  })
+
+  const defaultOrder = navigation.map((item) => item.path).filter((path) => allowed.has(path))
+  defaultOrder.forEach((path) => {
+    if (normalized.includes(path)) return
+
+    const nextDefaultPath = defaultOrder.find((candidate) => {
+      return defaultOrder.indexOf(candidate) > defaultOrder.indexOf(path) && normalized.includes(candidate)
+    })
+
+    if (nextDefaultPath) {
+      normalized.splice(normalized.indexOf(nextDefaultPath), 0, path)
+    } else {
+      normalized.push(path)
+    }
+  })
+
+  return normalized
+}
 
 function sortNavigationByAdminOrder(items, navOrder = []) {
-  const order = Array.isArray(navOrder) ? navOrder : []
+  const allowedPaths = items.map((item) => item.path)
+  const order = normalizeNavigationOrder(navOrder, allowedPaths)
   const indexByPath = new Map(order.map((path, index) => [path, index]))
   return [...items].sort((a, b) => {
     const aIndex = indexByPath.has(a.path) ? indexByPath.get(a.path) : Number.MAX_SAFE_INTEGER
@@ -25,13 +84,13 @@ export function Layout() {
   const mainRef = useRef(null)
   const settings = useCollection('settings', { limitCount: 20 })
   const appSettings = settings.items.find((item) => item.id === 'app') || {}
-  const quickSaleNavigation = navigation.find((item) => item.path === QUICK_SALE_PATH)
-  const canUseQuickSale = quickSaleNavigation ? hasPermission(quickSaleNavigation.permission) : false
+  const canUseQuickSale = hasPermission('ventas.read')
+  const canAccessNavigationItem = (item) => {
+    if (Array.isArray(item.permissionAny)) return item.permissionAny.some((permission) => hasPermission(permission))
+    return hasPermission(item.permission)
+  }
   const visibleNavigation = useMemo(() => {
-    const baseNavigation = navigation.filter((item) => (
-      item.path !== QUICK_SALE_PATH
-      && hasPermission(item.permission)
-    ))
+    const baseNavigation = navigation.filter((item) => canAccessNavigationItem(item))
     return sortNavigationByAdminOrder(baseNavigation, appSettings.navOrder)
   }, [appSettings.navOrder, hasPermission])
   const clinicName = appSettings.clinicName || 'Sistema Veterinaria'
@@ -72,6 +131,7 @@ export function Layout() {
           </div>
 
           <div className="layout-actions">
+            <NotificationBell />
             {canUseQuickSale && (
               <NavLink
                 to={QUICK_SALE_PATH}
@@ -79,7 +139,7 @@ export function Layout() {
                 onClick={focusMainContentOnMobile}
                 aria-label="Abrir venta rápida"
               >
-                <span>⚡</span>
+                <AppIcon name="bolt" size={19} />
               </NavLink>
             )}
             <button className="btn btn-ghost btn-small mobile-logout-button" onClick={logout}>Salir</button>
@@ -89,7 +149,7 @@ export function Layout() {
         <nav ref={navRef} className="nav-list" aria-label="Navegación principal">
           {visibleNavigation.map((item) => (
             <NavLink key={item.path} to={item.path} onClick={focusMainContentOnMobile}>
-              <span>{item.icon}</span>
+              <span className="nav-icon-frame"><AppIcon name={item.icon} size={19} /></span>
               <span>{item.label}</span>
             </NavLink>
           ))}

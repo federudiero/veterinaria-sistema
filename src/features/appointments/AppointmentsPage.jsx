@@ -94,7 +94,7 @@ const initialForm = {
 }
 
 export function AppointmentsPage() {
-  const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
+  const { clientOptions, patientOptionsForClient, clientMap, patientMap, clientById, patientById } = useLookups()
   const [selectedDate, setSelectedDate] = useState(todayISO())
   const [monthDate, setMonthDate] = useState(toDateAtNoon(todayISO()))
   const [query, setQuery] = useState('')
@@ -218,8 +218,15 @@ export function AppointmentsPage() {
     setModalOpen(true)
   }
 
-  function handleChange(name, value) {
-    setForm((current) => ({ ...current, [name]: value }))
+  function handleChange(name, value, field) {
+    setForm((current) => {
+      let next = { ...current, [name]: value }
+      if (typeof field?.onChange === 'function') {
+        const patch = field.onChange({ value, form: next, previousForm: current, field })
+        if (patch && typeof patch === 'object') next = { ...next, ...patch }
+      }
+      return next
+    })
   }
 
   async function saveAppointment(event) {
@@ -420,8 +427,8 @@ export function AppointmentsPage() {
               fields={[
                 { name: 'date', label: 'Fecha', type: 'date', required: true },
                 { name: 'time', label: 'Hora', type: 'time', required: true },
-                { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
-                { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions, required: true },
+                { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true, searchPlaceholder: 'Buscar tutor...', onChange: () => ({ patientId: '' }) },
+                { name: 'patientId', label: 'Paciente', type: 'select', options: ({ form }) => patientOptionsForClient(form.clientId, form.patientId), required: true, disabled: ({ form }) => !form.clientId, searchPlaceholder: 'Buscar paciente del tutor...', hint: ({ form }) => form.clientId ? 'Solo se muestran pacientes del tutor seleccionado.' : 'Primero seleccioná un tutor.' },
                 { name: 'professional', label: 'Profesional' },
                 { name: 'service', label: 'Servicio' },
                 { name: 'status', label: 'Estado', type: 'select', options: STATUS_OPTIONS },

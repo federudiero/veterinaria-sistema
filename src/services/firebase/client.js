@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import { getStorage, connectStorageEmulator } from 'firebase/storage'
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 import {
   APP_CHECK_DEBUG_TOKEN,
@@ -14,6 +15,7 @@ import {
 let app = null
 let auth = null
 let db = null
+let storage = null
 let appCheck = null
 let emulatorsConnected = false
 
@@ -21,6 +23,7 @@ if (canUseFirebase) {
   app = initializeApp(firebaseConfig)
   auth = getAuth(app)
   db = getFirestore(app)
+  storage = getStorage(app)
 
   if (APP_CHECK_ENABLED && typeof window !== 'undefined') {
     if (APP_CHECK_DEBUG_TOKEN) {
@@ -35,8 +38,9 @@ if (canUseFirebase) {
   if (USE_EMULATORS && !emulatorsConnected) {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
     connectFirestoreEmulator(db, '127.0.0.1', 8080)
+    connectStorageEmulator(storage, '127.0.0.1', 9199)
     emulatorsConnected = true
   }
 }
 
-export { app, auth, db, appCheck }
+export { app, auth, db, storage, appCheck }

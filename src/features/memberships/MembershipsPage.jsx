@@ -6,7 +6,7 @@ import { patientContactExportColumns } from '../../utils/patientExportColumns.js
 import { withClientPatientLookupFields } from '../../utils/lookupPayload.js'
 
 export function MembershipsPage() {
-  const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
+  const { clientOptions, patientOptionsForClient, clientMap, patientMap, clientById, patientById } = useLookups()
 
   const columns = [
     { key: 'clientId', label: 'Cliente', render: (row) => clientMap[row.clientId] || '-' },
@@ -46,8 +46,8 @@ export function MembershipsPage() {
       defaultOrderDirection="asc"
       initialValues={{ clientId: '', patientId: '', plan: '', monthlyFee: 0, status: 'Activo', nextBilling: '', notes: '' }}
       fields={[
-        { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
-        { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions },
+        { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true, searchPlaceholder: 'Buscar tutor...', onChange: () => ({ patientId: '' }) },
+        { name: 'patientId', label: 'Paciente', type: 'select', options: ({ form }) => patientOptionsForClient(form.clientId, form.patientId), disabled: ({ form }) => !form.clientId, searchPlaceholder: 'Buscar paciente del tutor...', hint: ({ form }) => form.clientId ? 'Solo se muestran pacientes del tutor seleccionado.' : 'Primero seleccioná un tutor.' },
         { name: 'plan', label: 'Plan', type: 'select', options: ['Plan básico', 'Plan anual', 'Plan premium', 'Convenio empresa'] },
         { name: 'monthlyFee', label: 'Cuota', type: 'number' },
         { name: 'status', label: 'Estado', type: 'select', options: ['Activo', 'Suspendido', 'Baja'] },

@@ -20,8 +20,9 @@ function normalizeArray(value) {
 
 export function FormField({ field, value, form = {}, onChange }) {
   const [optionFilter, setOptionFilter] = useState('')
-  const options = field.options || []
   const fieldContext = { field, value, form }
+  const resolvedOptions = typeof field.options === 'function' ? field.options(fieldContext) : field.options
+  const options = Array.isArray(resolvedOptions) ? resolvedOptions : []
   const selectedOption = options.find((option) => String(optionValue(option)) === String(value ?? ''))
   const resolvedHint = typeof field.hint === 'function' ? field.hint(fieldContext) : field.hint
   const resolvedDisabled = typeof field.disabled === 'function' ? field.disabled(fieldContext) : field.disabled
@@ -115,12 +116,13 @@ export function FormField({ field, value, form = {}, onChange }) {
         </div>
       ) : field.type === 'select' ? (
         <>
-          {options.length > 12 && (
+          {field.searchable !== false && options.length > 0 && (
             <input
               className="select-filter"
               value={optionFilter}
               onChange={(event) => setOptionFilter(event.target.value)}
-              placeholder="Buscar opción..."
+              placeholder={field.searchPlaceholder || 'Buscar opción...'}
+              disabled={resolvedDisabled}
             />
           )}
           <select {...commonProps}>

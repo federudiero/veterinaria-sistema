@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
+import { SearchableSelect } from '../../components/forms/SearchableSelect.jsx'
 import { StatCard } from '../../components/ui/StatCard.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
@@ -59,7 +60,7 @@ export function QuickSalePage() {
   const { hasPermission, user } = useAuth()
   const canWrite = hasPermission('ventas.write')
   const canManageCashSession = hasPermission('caja.close')
-  const { clientOptions, patientOptions, clientMap, patientMap } = useLookups()
+  const { clientOptions, patientOptionsForClient, clientMap, patientMap } = useLookups()
   const products = useCollection('products', { limitCount: 300, orderByField: 'name', orderDirection: 'asc' })
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
   const sales = useCollection('sales', {
@@ -139,6 +140,7 @@ export function QuickSalePage() {
         ...current,
         [name]: normalizedValue,
         ...(name === 'date' ? { shiftId: '' } : {}),
+        ...(name === 'clientId' ? { patientId: '' } : {}),
         ...(name === 'paymentMethod' && value === 'Cuenta corriente' ? { paid: false } : {}),
         ...(name === 'paymentMethod' && value !== 'Cuenta corriente' ? { paid: true } : {}),
       }
@@ -422,20 +424,23 @@ export function QuickSalePage() {
                 <span>Fecha</span>
                 <input type="date" value={form.date} onChange={(event) => updateForm('date', event.target.value)} />
               </label>
-              <label className="field">
-                <span>Cliente</span>
-                <select value={form.clientId} onChange={(event) => updateForm('clientId', event.target.value)} required={forcedCurrentAccount}>
-                  <option value="">Mostrador / sin cliente</option>
-                  {clientOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
-              <label className="field">
-                <span>Paciente</span>
-                <select value={form.patientId} onChange={(event) => updateForm('patientId', event.target.value)}>
-                  <option value="">Sin paciente</option>
-                  {patientOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
+              <SearchableSelect
+                label="Cliente"
+                value={form.clientId}
+                onChange={(value) => updateForm('clientId', value)}
+                options={clientOptions}
+                placeholder="Mostrador / sin cliente"
+                searchPlaceholder="Buscar tutor..."
+              />
+              <SearchableSelect
+                label="Paciente"
+                value={form.patientId}
+                onChange={(value) => updateForm('patientId', value)}
+                options={patientOptionsForClient(form.clientId, form.patientId)}
+                placeholder={form.clientId ? 'Sin paciente' : 'Primero seleccioná un tutor'}
+                searchPlaceholder="Buscar paciente del tutor..."
+                disabled={!form.clientId}
+              />
               {forcedCurrentAccount && (
                 <label className="field">
                   <span>Vencimiento</span>

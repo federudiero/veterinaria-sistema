@@ -89,6 +89,7 @@ export function CrudPage({
   searchPlaceholder,
   enableTags = false,
   tagScope,
+  extraRowActions,
 }) {
   const modulePermissions = COLLECTION_PERMISSIONS[collectionName] || {}
   const effectiveReadPermission = readPermission ?? modulePermissions.read
@@ -213,10 +214,11 @@ export function CrudPage({
       if (enableTags) payload = { ...payload, tagNames: tagNamesFromIds(payload.tagIds, availableTags) }
       if (beforeSave) payload = await beforeSave(payload, editing)
       payload = { ...payload, ...buildSearchPayload(payload, effectiveSearchFields) }
-      if (editing) await update(editing.id, payload)
-      else if (documentIdField && payload[documentIdField]) await set(String(payload[documentIdField]).trim(), payload)
-      else await create(payload)
-      if (afterSave) await afterSave(payload, editing)
+      let savedId = editing?.id || ''
+      if (editing) savedId = await update(editing.id, payload)
+      else if (documentIdField && payload[documentIdField]) savedId = await set(String(payload[documentIdField]).trim(), payload)
+      else savedId = await create(payload)
+      if (afterSave) await afterSave(payload, editing, savedId)
       feedback.success(editing ? 'El registro se actualizó correctamente.' : 'El registro se creó correctamente.')
       setModalOpen(false)
       refresh?.()
@@ -325,6 +327,7 @@ export function CrudPage({
                   subtitle="Detalle individual con los datos visibles y relacionados configurados para esta seccion."
                   fileLabel={exportFileLabel || title}
                 />
+                {typeof extraRowActions === 'function' && extraRowActions(row)}
                 {canWrite && <button className="btn btn-small" onClick={() => openEdit(row)}>Editar</button>}
                 {canDelete && <button className="btn btn-small btn-danger" onClick={() => handleDelete(row)}>Eliminar</button>}
               </>

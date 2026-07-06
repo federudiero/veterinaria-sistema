@@ -6,7 +6,7 @@ import { patientContactExportColumns } from '../../utils/patientExportColumns.js
 import { withClientPatientLookupFields } from '../../utils/lookupPayload.js'
 
 export function BoardingPage() {
-  const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
+  const { clientOptions, patientOptionsForClient, clientMap, patientMap, clientById, patientById } = useLookups()
 
   const columns = [
     { key: 'patientId', label: 'Paciente', render: (row) => patientMap[row.patientId] || '-' },
@@ -50,8 +50,8 @@ export function BoardingPage() {
       defaultOrderDirection="desc"
       initialValues={{ patientId: '', clientId: '', room: '', startDate: todayISO(), endDate: '', status: 'Internado', feeding: '', medication: '', amount: 0, paid: false, notes: '' }}
       fields={[
-        { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
-        { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions, required: true },
+        { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true, searchPlaceholder: 'Buscar tutor...', onChange: () => ({ patientId: '' }) },
+        { name: 'patientId', label: 'Paciente', type: 'select', options: ({ form }) => patientOptionsForClient(form.clientId, form.patientId), required: true, disabled: ({ form }) => !form.clientId, searchPlaceholder: 'Buscar paciente del tutor...', hint: ({ form }) => form.clientId ? 'Solo se muestran pacientes del tutor seleccionado.' : 'Primero seleccioná un tutor.' },
         { name: 'room', label: 'Canil / sala' },
         { name: 'startDate', label: 'Ingreso', type: 'date' },
         { name: 'endDate', label: 'Alta', type: 'date' },

@@ -163,7 +163,7 @@ export function RemindersPage() {
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
   const {
     clientOptions,
-    patientOptions,
+    patientOptionsForClient,
     productOptions,
     clientMap,
     patientMap,
@@ -326,15 +326,19 @@ export function RemindersPage() {
     setModalOpen(true)
   }
 
-  function handleChange(name, value) {
+  function handleChange(name, value, field) {
     setForm((current) => {
       const normalizedValue = name === 'creditSurchargePercent' || name === 'unitPrice'
         ? String(value).replace(',', '.')
         : value
-      const next = {
+      let next = {
         ...current,
         [name]: normalizedValue,
         ...(name === 'category' ? { type: value } : {}),
+      }
+      if (typeof field?.onChange === 'function') {
+        const patch = field.onChange({ value, form: next, previousForm: current, field })
+        if (patch && typeof patch === 'object') next = { ...next, ...patch }
       }
       if (name === 'kind') {
         const normalizedKind = normalizeKind(value)
@@ -695,8 +699,8 @@ export function RemindersPage() {
                 { name: 'category', label: 'Categoría', type: 'select', options: CATEGORY_OPTIONS, required: true },
                 { name: 'color', label: 'Color', type: 'select', options: COLOR_OPTIONS, required: true },
                 { name: 'status', label: 'Estado', type: 'select', options: STATUS_OPTIONS },
-                { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, hint: 'Opcional para recordatorios internos. Recomendado para ventas futuras.' },
-                { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions },
+                { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, searchPlaceholder: 'Buscar tutor...', hint: 'Opcional para recordatorios internos. Recomendado para ventas futuras.', onChange: () => ({ patientId: '' }) },
+                { name: 'patientId', label: 'Paciente', type: 'select', options: ({ form }) => patientOptionsForClient(form.clientId, form.patientId), disabled: ({ form }) => !form.clientId, searchPlaceholder: 'Buscar paciente del tutor...', hint: ({ form }) => form.clientId ? 'Solo se muestran pacientes del tutor seleccionado.' : 'Primero seleccioná un tutor.' },
                 { name: 'title', label: 'Título corto', placeholder: 'Ej: preparar alimento 15 kg' },
                 { name: 'channel', label: 'Canal', type: 'select', options: CHANNEL_OPTIONS },
                 { name: 'message', label: 'Detalle / aviso', type: 'textarea', rows: 3, required: true },

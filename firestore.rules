@@ -62,6 +62,99 @@ service cloud.firestore {
       return isPortalClient(tenantId) && resource.data.clientId in portalClientIds(tenantId);
     }
 
+    function ownsRequestClientData(tenantId) {
+      return isPortalClient(tenantId)
+        && request.resource.data.clientId is string
+        && request.resource.data.clientId in portalClientIds(tenantId);
+    }
+
+    function requestPatientBelongsToClient(tenantId) {
+      return request.resource.data.patientId is string
+        && exists(/databases/$(database)/documents/tenants/$(tenantId)/patients/$(request.resource.data.patientId))
+        && get(/databases/$(database)/documents/tenants/$(tenantId)/patients/$(request.resource.data.patientId)).data.clientId == request.resource.data.clientId;
+    }
+
+    function isPortalConsultationCreate(tenantId) {
+      return ownsRequestClientData(tenantId)
+        && requestPatientBelongsToClient(tenantId)
+        && request.resource.data.source == 'portal'
+        && request.resource.data.status == 'Nueva'
+        && request.resource.data.keys().hasOnly([
+          'date',
+          'createdAtISO',
+          'source',
+          'status',
+          'urgency',
+          'subject',
+          'reason',
+          'message',
+          'preferredChannel',
+          'contactPhone',
+          'contactEmail',
+          'portalUserUid',
+          'portalUserEmail',
+          'clientId',
+          'clientName',
+          'clientEmail',
+          'patientId',
+          'patientName',
+          'patientSpecies',
+          'patientBreed',
+          'patientSex',
+          'patientBirthDate',
+          'patientWeight',
+          'patientColor',
+          'patientCastrationStatus',
+          'patientChip',
+          'patientAllergies',
+          'patientAlerts',
+          'patientStatus',
+          'searchTitle',
+          'createdAt',
+          'updatedAt',
+          'searchText',
+          'searchTokens'
+        ]);
+    }
+
+    function isPortalNotificationCreate(tenantId) {
+      return ownsRequestClientData(tenantId)
+        && requestPatientBelongsToClient(tenantId)
+        && request.resource.data.type == 'Consulta portal'
+        && request.resource.data.status == 'No leída'
+        && request.resource.data.source == 'portalConsultations'
+        && request.resource.data.keys().hasOnly([
+          'date',
+          'createdAtISO',
+          'type',
+          'priority',
+          'status',
+          'title',
+          'message',
+          'source',
+          'sourceId',
+          'clientId',
+          'clientName',
+          'clientEmail',
+          'patientId',
+          'patientName',
+          'patientSpecies',
+          'patientBreed',
+          'patientSex',
+          'patientBirthDate',
+          'patientWeight',
+          'patientColor',
+          'patientCastrationStatus',
+          'patientChip',
+          'patientAllergies',
+          'patientAlerts',
+          'createdAt',
+          'updatedAt',
+          'searchText',
+          'searchTokens'
+        ]);
+    }
+
     function productStockOnlyUpdate() {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly([
         'stock',
@@ -107,8 +200,8 @@ service cloud.firestore {
         // El usuario autenticado siempre puede leer su propio perfil.
         // Esto evita el bloqueo inicial de "Missing or insufficient permissions"
         // cuando Auth ya existe pero el frontend necesita validar el perfil interno.
-        allow get: if isOwnUserDoc(userId) || hasPermission(tenantId, 'usuarios.read');
-        allow list: if hasPermission(tenantId, 'usuarios.read');
+        allow get: if isOwnUserDoc(userId) || hasPermission(tenantId, 'usuarios.read') || hasPermission(tenantId, 'clinica.write');
+        allow list: if hasPermission(tenantId, 'usuarios.read') || hasPermission(tenantId, 'clinica.write');
         allow create: if hasPermission(tenantId, 'usuarios.write') || isValidSelfAccessRequest(tenantId, userId);
         allow update: if hasPermission(tenantId, 'usuarios.write');
         allow delete: if hasPermission(tenantId, 'usuarios.write') && request.auth.uid != userId;
@@ -154,6 +247,32 @@ service cloud.firestore {
       match /prescriptions/{docId} {
         allow read: if hasPermission(tenantId, 'clinica.read') || ownsClientData(tenantId);
         allow write: if hasPermission(tenantId, 'clinica.write');
+      }
+
+
+      match /clinicalFiles/{docId} {
+        allow read: if hasPermission(tenantId, 'clinica.read')
+          || (ownsClientData(tenantId) && resource.data.visibleInPortal == true && resource.data.uploadStatus == 'ready');
+        allow write: if hasPermission(tenantId, 'clinica.write');
+      }
+
+      match /notifications/{docId} {
+        allow read: if hasPermission(tenantId, 'notificaciones.read');
+        allow create: if hasPermission(tenantId, 'notificaciones.write') || isPortalNotificationCreate(tenantId);
+        allow update: if hasPermission(tenantId, 'notificaciones.write');
+        allow delete: if hasPermission(tenantId, 'notificaciones.write');
+      }
+
+      match /portalConsultations/{docId} {
+        allow read: if hasPermission(tenantId, 'notificaciones.read') || ownsClientData(tenantId);
+        allow create: if hasPermission(tenantId, 'notificaciones.write') || isPortalConsultationCreate(tenantId);
+        allow update: if hasPermission(tenantId, 'notificaciones.write');
+        allow delete: if hasPermission(tenantId, 'notificaciones.write');
+      }
+
+      match /emailOutbox/{docId} {
+        allow read: if hasPermission(tenantId, 'notificaciones.read');
+        allow write: if hasPermission(tenantId, 'notificaciones.write');
       }
 
       match /appointments/{docId} {

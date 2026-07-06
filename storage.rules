@@ -1,0 +1,84 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(tenantId) {
+      return /databases/(default)/documents/tenants/$(tenantId)/users/$(request.auth.uid);
+    }
+
+    function clinicalFilePath(tenantId, fileId) {
+      return /databases/(default)/documents/tenants/$(tenantId)/clinicalFiles/$(fileId);
+    }
+
+    function isTenantUser(tenantId) {
+      return signedIn() && firestore.exists(userPath(tenantId));
+    }
+
+    function userData(tenantId) {
+      return firestore.get(userPath(tenantId)).data;
+    }
+
+    function userIsActive(tenantId) {
+      return isTenantUser(tenantId) && userData(tenantId).active == true;
+    }
+
+    function isAdmin(tenantId) {
+      return userIsActive(tenantId) && userData(tenantId).role == 'admin';
+    }
+
+    function userPermissions(tenantId) {
+      return userData(tenantId).permissions is list ? userData(tenantId).permissions : [];
+    }
+
+    function hasPermission(tenantId, permission) {
+      return userIsActive(tenantId) && (
+        isAdmin(tenantId) ||
+        permission in userPermissions(tenantId)
+      );
+    }
+
+    function isPortalClient(tenantId) {
+      return userIsActive(tenantId) && userData(tenantId).role == 'cliente';
+    }
+
+    function portalClientIds(tenantId) {
+      return userData(tenantId).clientIds is list
+        ? userData(tenantId).clientIds
+        : (userData(tenantId).clientId is string ? [userData(tenantId).clientId] : []);
+    }
+
+    function clinicalFileData(tenantId, fileId) {
+      return firestore.get(clinicalFilePath(tenantId, fileId)).data;
+    }
+
+    function portalCanReadClinicalFile(tenantId, clientId, patientId, fileId) {
+      return isPortalClient(tenantId)
+        && clientId in portalClientIds(tenantId)
+        && firestore.exists(clinicalFilePath(tenantId, fileId))
+        && clinicalFileData(tenantId, fileId).clientId == clientId
+        && clinicalFileData(tenantId, fileId).patientId == patientId
+        && clinicalFileData(tenantId, fileId).visibleInPortal == true
+        && clinicalFileData(tenantId, fileId).uploadStatus == 'ready';
+    }
+
+    function validClinicalPdfUpload() {
+      return request.resource != null
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    match /tenants/{tenantId}/clients/{clientId}/patients/{patientId}/clinical-files/{fileId} {
+      allow read: if hasPermission(tenantId, 'clinica.read')
+        || portalCanReadClinicalFile(tenantId, clientId, patientId, fileId);
+      allow create, update: if hasPermission(tenantId, 'clinica.write') && validClinicalPdfUpload();
+      allow delete: if hasPermission(tenantId, 'clinica.write');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
 import { Modal } from '../../components/ui/Modal.jsx'
@@ -15,8 +16,9 @@ import { useFeedback } from '../../contexts/FeedbackContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { repository } from '../../services/repositories/repositoryFactory.js'
 import { findOpenDailyCashSession, shiftOptionLabel, shiftUserPayload } from '../../utils/shifts.js'
+import { FuturePurchasesPage } from '../futurePurchases/FuturePurchasesPage.jsx'
 
-const initialForm = {
+const purchaseInitialForm = {
   date: todayISO(),
   supplierId: '',
   productId: '',
@@ -29,37 +31,89 @@ const initialForm = {
   notes: '',
 }
 
+const productInitialForm = {
+  sku: '',
+  name: '',
+  category: '',
+  type: 'Producto',
+  cost: 0,
+  price: 0,
+  stock: 0,
+  minStock: 0,
+  unit: 'unidad',
+  active: true,
+}
+
+const supplierInitialForm = {
+  name: '',
+  cuit: '',
+  phone: '',
+  email: '',
+  address: '',
+  balance: 0,
+  notes: '',
+}
+
+const INVENTORY_TABS = ['purchases', 'products', 'suppliers', 'future']
+
 export function PurchasesPage() {
   const purchases = useServerCollectionControls('purchases', { dateField: 'date', statusField: 'status', orderByField: 'date', orderDirection: 'desc' })
+  const productsPanel = useServerCollectionControls('products', { dateField: '', statusField: '', orderByField: 'name', orderDirection: 'asc' })
+  const suppliersPanel = useServerCollectionControls('suppliers', { dateField: '', statusField: '', orderByField: 'name', orderDirection: 'asc' })
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
   const { supplierOptions, productOptions, supplierMap, productMap, supplierById, productById, products } = useLookups()
-  const [modalOpen, setModalOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab') || ''
+  const [activeTab, setActiveTabState] = useState(INVENTORY_TABS.includes(requestedTab) ? requestedTab : 'purchases')
+  const [purchaseModalOpen, setPurchaseModalOpen] = useState(false)
+  const [productModalOpen, setProductModalOpen] = useState(false)
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState(null)
+  const [editingSupplier, setEditingSupplier] = useState(null)
   const [voidingPurchase, setVoidingPurchase] = useState(null)
   const [voidReason, setVoidReason] = useState('')
-  const [form, setForm] = useState(initialForm)
+  const [purchaseForm, setPurchaseForm] = useState(purchaseInitialForm)
+  const [productForm, setProductForm] = useState(productInitialForm)
+  const [supplierForm, setSupplierForm] = useState(supplierInitialForm)
   const [saving, setSaving] = useState(false)
   const purchaseFormId = useId()
+  const productFormId = useId()
+  const supplierFormId = useId()
   const voidFormId = useId()
   const feedback = useFeedback()
   const { hasPermission } = useAuth()
-  const canWrite = hasPermission('compras.write')
+  const canWritePurchases = hasPermission('compras.write')
+  const canWriteStock = hasPermission('stock.write')
 
-  const selectedProduct = useMemo(() => products.find((item) => item.id === form.productId), [products, form.productId])
-  const total = numberValue(form.qty) * numberValue(form.cost)
+  function setActiveTab(tab) {
+    const nextTab = INVENTORY_TABS.includes(tab) ? tab : 'purchases'
+    setActiveTabState(nextTab)
+    setSearchParams({ tab: nextTab })
+  }
+
+  const selectedProduct = useMemo(() => products.find((item) => item.id === purchaseForm.productId), [products, purchaseForm.productId])
+  const purchaseTotal = numberValue(purchaseForm.qty) * numberValue(purchaseForm.cost)
   const activePurchases = purchases.items.filter((item) => item.status !== 'Anulada')
   const totalActive = sumBy(activePurchases, (item) => item.total || numberValue(item.qty) * numberValue(item.cost))
-  const selectedShift = useMemo(() => findOpenDailyCashSession(shifts.items, form.date), [form.date, shifts.items])
-  const openShiftOptions = useMemo(() => selectedShift ? [{
-    value: selectedShift.id,
-    label: shiftOptionLabel(selectedShift),
-  }] : [], [selectedShift])
+  const selectedShift = useMemo(() => findOpenDailyCashSession(shifts.items, purchaseForm.date), [purchaseForm.date, shifts.items])
+  const openShiftOptions = useMemo(() => selectedShift ? [{ value: selectedShift.id, label: shiftOptionLabel(selectedShift) }] : [], [selectedShift])
+  const lowStockProducts = productsPanel.items.filter((item) => item.type === 'Producto' && numberValue(item.stock) <= numberValue(item.minStock))
 
   useEffect(() => {
-    if (!form.paid || form.shiftId || !openShiftOptions.length) return
-    setForm((current) => ({ ...current, shiftId: openShiftOptions[0].value }))
-  }, [form.paid, form.shiftId, openShiftOptions])
+    if (!purchaseForm.paid || purchaseForm.shiftId || !openShiftOptions.length) return
+    setPurchaseForm((current) => ({ ...current, shiftId: openShiftOptions[0].value }))
+  }, [purchaseForm.paid, purchaseForm.shiftId, openShiftOptions])
 
-  const columns = [
+  useEffect(() => {
+    if (!requestedTab) return
+    if (!INVENTORY_TABS.includes(requestedTab)) {
+      setActiveTab('purchases')
+      return
+    }
+    if (requestedTab !== activeTab) setActiveTabState(requestedTab)
+  }, [requestedTab, activeTab])
+
+  const purchaseColumns = [
     { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
     { key: 'supplierId', label: 'Proveedor', render: (row) => supplierMap[row.supplierId] || row.supplierName || '-' },
     { key: 'productId', label: 'Producto', render: (row) => productMap[row.productId] || row.productName || '-' },
@@ -71,52 +125,156 @@ export function PurchasesPage() {
     { key: 'invoice', label: 'Comprobante' },
   ]
 
-  const exportColumns = [
-    ...columns,
+  const productColumns = [
+    { key: 'sku', label: 'SKU' },
+    { key: 'name', label: 'Producto' },
+    { key: 'category', label: 'Categoría' },
+    { key: 'type', label: 'Tipo' },
+    { key: 'stock', label: 'Stock' },
+    { key: 'minStock', label: 'Mínimo' },
+    { key: 'cost', label: 'Costo', render: (row) => money(row.cost) },
+    { key: 'price', label: 'Precio', render: (row) => money(row.price) },
+    { key: 'active', label: 'Activo', render: (row) => row.active === false ? 'No' : 'Sí' },
+  ]
+
+  const supplierColumns = [
+    { key: 'name', label: 'Proveedor' },
+    { key: 'cuit', label: 'CUIT' },
+    { key: 'phone', label: 'Teléfono' },
+    { key: 'email', label: 'Email' },
+    { key: 'address', label: 'Dirección' },
+    { key: 'balance', label: 'Saldo', render: (row) => money(row.balance) },
+  ]
+
+  const purchaseExportColumns = [
+    ...purchaseColumns,
     { key: 'cashMovementId', label: 'Mov. caja' },
     { key: 'stockMovementId', label: 'Mov. stock' },
     { key: 'voidReason', label: 'Motivo anulación' },
     { key: 'notes', label: 'Notas' },
   ]
 
-  function handleChange(name, value) {
-    setForm((current) => ({ ...current, [name]: value, ...(name === 'date' ? { shiftId: '' } : {}) }))
+  function handlePurchaseChange(name, value) {
+    setPurchaseForm((current) => ({ ...current, [name]: value, ...(name === 'date' ? { shiftId: '' } : {}) }))
+  }
+
+  function handleProductChange(name, value) {
+    setProductForm((current) => ({ ...current, [name]: value }))
+  }
+
+  function handleSupplierChange(name, value) {
+    setSupplierForm((current) => ({ ...current, [name]: value }))
+  }
+
+  function openProductModal(row = null) {
+    setEditingProduct(row)
+    setProductForm(row ? { ...productInitialForm, ...row } : productInitialForm)
+    setProductModalOpen(true)
+  }
+
+  function openSupplierModal(row = null) {
+    setEditingSupplier(row)
+    setSupplierForm(row ? { ...supplierInitialForm, ...row } : supplierInitialForm)
+    setSupplierModalOpen(true)
   }
 
   async function savePurchase(event) {
     event.preventDefault()
-    if (!canWrite) {
+    if (!canWritePurchases) {
       feedback.warning('No tenés permiso para crear compras.')
       return
     }
     if (!selectedProduct) return
-    if (form.paid && !selectedShift) {
+    if (purchaseForm.paid && !selectedShift) {
       feedback.warning('No hay caja del día abierta. Abrí la caja diaria para registrar el egreso de la compra pagada.')
       return
     }
     setSaving(true)
     try {
       await repository.createPurchaseTransaction({
-        ...form,
-        qty: numberValue(form.qty) || 1,
-        cost: numberValue(form.cost),
-        supplierName: supplierMap[form.supplierId] || '',
-        supplierPhone: supplierById[form.supplierId]?.phone || '',
-        productName: productMap[form.productId] || selectedProduct?.name || '',
-        productSku: productById[form.productId]?.sku || selectedProduct?.sku || '',
+        ...purchaseForm,
+        qty: numberValue(purchaseForm.qty) || 1,
+        cost: numberValue(purchaseForm.cost),
+        supplierName: supplierMap[purchaseForm.supplierId] || '',
+        supplierPhone: supplierById[purchaseForm.supplierId]?.phone || '',
+        productName: productMap[purchaseForm.productId] || selectedProduct?.name || '',
+        productSku: productById[purchaseForm.productId]?.sku || selectedProduct?.sku || '',
         ...(selectedShift ? {
           shiftId: selectedShift.id,
           shiftName: 'Caja del día',
-          shiftDate: selectedShift.date || form.date,
+          shiftDate: selectedShift.date || purchaseForm.date,
           ...shiftUserPayload(selectedShift),
         } : {}),
       })
       feedback.success('La compra se registró con reposición de stock, caja y auditoría.')
       purchases.refresh?.()
-      setModalOpen(false)
-      setForm(initialForm)
+      productsPanel.refresh?.()
+      setPurchaseModalOpen(false)
+      setPurchaseForm(purchaseInitialForm)
     } catch (error) {
       feedback.error(error?.message || 'No se pudo guardar la compra.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function saveProduct(event) {
+    event.preventDefault()
+    if (!canWriteStock) {
+      feedback.warning('No tenés permiso para modificar productos.')
+      return
+    }
+    if (!productForm.name.trim()) {
+      feedback.warning('Indicá el nombre del producto.')
+      return
+    }
+    setSaving(true)
+    try {
+      const payload = {
+        ...productForm,
+        name: productForm.name.trim(),
+        cost: numberValue(productForm.cost),
+        price: numberValue(productForm.price),
+        stock: numberValue(productForm.stock),
+        minStock: numberValue(productForm.minStock),
+        active: productForm.active !== false,
+      }
+      if (editingProduct) await repository.updateDocument('products', editingProduct.id, payload)
+      else await repository.createDocument('products', payload)
+      feedback.success(editingProduct ? 'Producto actualizado.' : 'Producto creado.')
+      productsPanel.refresh?.()
+      setProductModalOpen(false)
+      setEditingProduct(null)
+      setProductForm(productInitialForm)
+    } catch (error) {
+      feedback.error(error?.message || 'No se pudo guardar el producto.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function saveSupplier(event) {
+    event.preventDefault()
+    if (!canWritePurchases) {
+      feedback.warning('No tenés permiso para modificar proveedores.')
+      return
+    }
+    if (!supplierForm.name.trim()) {
+      feedback.warning('Indicá el nombre del proveedor.')
+      return
+    }
+    setSaving(true)
+    try {
+      const payload = { ...supplierForm, name: supplierForm.name.trim(), balance: numberValue(supplierForm.balance) }
+      if (editingSupplier) await repository.updateDocument('suppliers', editingSupplier.id, payload)
+      else await repository.createDocument('suppliers', payload)
+      feedback.success(editingSupplier ? 'Proveedor actualizado.' : 'Proveedor creado.')
+      suppliersPanel.refresh?.()
+      setSupplierModalOpen(false)
+      setEditingSupplier(null)
+      setSupplierForm(supplierInitialForm)
+    } catch (error) {
+      feedback.error(error?.message || 'No se pudo guardar el proveedor.')
     } finally {
       setSaving(false)
     }
@@ -129,7 +287,7 @@ export function PurchasesPage() {
 
   async function confirmVoid(event) {
     event.preventDefault()
-    if (!canWrite || !voidingPurchase) return
+    if (!canWritePurchases || !voidingPurchase) return
     if (!voidReason.trim()) {
       feedback.warning('Indicá un motivo de anulación.')
       return
@@ -139,6 +297,7 @@ export function PurchasesPage() {
       await repository.voidPurchaseTransaction(voidingPurchase, { reason: voidReason.trim(), date: todayISO() })
       feedback.success('La compra fue anulada y se revirtió stock/caja cuando correspondía.')
       purchases.refresh?.()
+      productsPanel.refresh?.()
       setVoidingPurchase(null)
       setVoidReason('')
     } catch (error) {
@@ -151,9 +310,9 @@ export function PurchasesPage() {
   return (
     <section>
       <SectionHeader
-        eyebrow="Compras"
-        title="Compras"
-        description="Compras transaccionales: reposición de stock, egreso en la caja abierta si está pagada y auditoría automática."
+        eyebrow="Compras e inventario"
+        title="Compras, proveedores, productos y stock"
+        description="Centro único para comprar, reponer stock, crear productos y administrar proveedores sin saltar entre secciones."
         actions={
           <>
             <ExportButtons
@@ -161,14 +320,16 @@ export function PurchasesPage() {
               subtitle="Compras filtradas con proveedor, producto, stock, caja y estado."
               rows={purchases.items}
               getRows={purchases.fetchAllForExport}
-              columns={exportColumns}
+              columns={purchaseExportColumns}
               summary={[
                 { label: 'Compras activas', value: activePurchases.length },
                 { label: 'Total activo', value: money(totalActive) },
               ]}
               fileLabel="compras"
             />
-            {canWrite && <button className="btn btn-primary" onClick={() => setModalOpen(true)}>Nueva compra</button>}
+            {canWriteStock && <button className="btn" onClick={() => openProductModal()}>Nuevo producto</button>}
+            {canWritePurchases && <button className="btn" onClick={() => openSupplierModal()}>Nuevo proveedor</button>}
+            {canWritePurchases && <button className="btn btn-primary" onClick={() => setPurchaseModalOpen(true)}>Nueva compra</button>}
           </>
         }
       />
@@ -176,41 +337,101 @@ export function PurchasesPage() {
       <div className="stats-grid compact">
         <StatCard label="Compras activas" value={activePurchases.length} />
         <StatCard label="Total activo" value={money(totalActive)} tone="warning" />
-        <StatCard label="Compras anuladas" value={purchases.items.filter((item) => item.status === 'Anulada').length} tone="danger" />
+        <StatCard label="Stock bajo" value={lowStockProducts.length} tone={lowStockProducts.length ? 'danger' : 'success'} />
+        <StatCard label="Proveedores visibles" value={suppliersPanel.items.length} tone="info" />
       </div>
 
-      <ListToolbar
-        query={purchases.query}
-        onQueryChange={purchases.setQuery}
-        placeholder="Buscar por proveedor, producto, SKU, comprobante, estado o notas..."
-        dateFrom={purchases.dateFrom}
-        dateTo={purchases.dateTo}
-        onDateFromChange={purchases.setDateFrom}
-        onDateToChange={purchases.setDateTo}
-        status={purchases.status}
-        onStatusChange={purchases.setStatus}
-        statusOptions={['Activa', 'Anulada']}
-        onClearFilters={purchases.clearFilters}
-      />
-      <DataTable
-        rows={purchases.items}
-        columns={columns}
-        actions={(row) => (
-          <>
-            {canWrite && row.status !== 'Anulada' && <button className="btn btn-small btn-danger" onClick={() => openVoid(row)}>Anular</button>}
-          </>
-        )}
-      />
-      <Pagination {...purchases} onPageSizeChange={purchases.setPageSize} total={purchases.items.length} limit={purchases.pageSize} />
+      <div className="section-tabs" role="tablist" aria-label="Compras e inventario">
+        <button type="button" className={activeTab === 'purchases' ? 'active' : ''} onClick={() => setActiveTab('purchases')}>Compras</button>
+        <button type="button" className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}>Productos y stock</button>
+        <button type="button" className={activeTab === 'suppliers' ? 'active' : ''} onClick={() => setActiveTab('suppliers')}>Proveedores</button>
+        <button type="button" className={activeTab === 'future' ? 'active' : ''} onClick={() => setActiveTab('future')}>Compras futuras</button>
+      </div>
 
-      {modalOpen && (
+      {activeTab === 'purchases' && (
+        <div className="inventory-panel-stack">
+          <ListToolbar
+            query={purchases.query}
+            onQueryChange={purchases.setQuery}
+            placeholder="Buscar por proveedor, producto, SKU, comprobante, estado o notas..."
+            dateFrom={purchases.dateFrom}
+            dateTo={purchases.dateTo}
+            onDateFromChange={purchases.setDateFrom}
+            onDateToChange={purchases.setDateTo}
+            status={purchases.status}
+            onStatusChange={purchases.setStatus}
+            statusOptions={['Activa', 'Anulada']}
+            onClearFilters={purchases.clearFilters}
+          />
+          <DataTable
+            rows={purchases.items}
+            columns={purchaseColumns}
+            actions={(row) => (
+              <>
+                {canWritePurchases && row.status !== 'Anulada' && <button className="btn btn-small btn-danger" onClick={() => openVoid(row)}>Anular</button>}
+              </>
+            )}
+          />
+          <Pagination {...purchases} onPageSizeChange={purchases.setPageSize} total={purchases.items.length} limit={purchases.pageSize} />
+        </div>
+      )}
+
+      {activeTab === 'products' && (
+        <div className="inventory-panel-stack">
+          <ListToolbar
+            query={productsPanel.query}
+            onQueryChange={productsPanel.setQuery}
+            placeholder="Buscar producto por nombre, SKU, categoría, tipo o unidad..."
+            onClearFilters={productsPanel.clearFilters}
+          />
+          <DataTable
+            rows={productsPanel.items}
+            columns={productColumns}
+            actions={(row) => (
+              <>
+                {canWriteStock && <button className="btn btn-small" onClick={() => openProductModal(row)}>Editar</button>}
+              </>
+            )}
+          />
+          <Pagination {...productsPanel} onPageSizeChange={productsPanel.setPageSize} total={productsPanel.items.length} limit={productsPanel.pageSize} />
+        </div>
+      )}
+
+      {activeTab === 'suppliers' && (
+        <div className="inventory-panel-stack">
+          <ListToolbar
+            query={suppliersPanel.query}
+            onQueryChange={suppliersPanel.setQuery}
+            placeholder="Buscar proveedor por nombre, CUIT, teléfono, email o dirección..."
+            onClearFilters={suppliersPanel.clearFilters}
+          />
+          <DataTable
+            rows={suppliersPanel.items}
+            columns={supplierColumns}
+            actions={(row) => (
+              <>
+                {canWritePurchases && <button className="btn btn-small" onClick={() => openSupplierModal(row)}>Editar</button>}
+              </>
+            )}
+          />
+          <Pagination {...suppliersPanel} onPageSizeChange={suppliersPanel.setPageSize} total={suppliersPanel.items.length} limit={suppliersPanel.pageSize} />
+        </div>
+      )}
+
+      {activeTab === 'future' && (
+        <div className="inventory-panel-stack embedded-module ops-center-module">
+          <FuturePurchasesPage />
+        </div>
+      )}
+
+      {purchaseModalOpen && (
         <Modal
           title="Nueva compra"
-          onClose={() => setModalOpen(false)}
+          onClose={() => setPurchaseModalOpen(false)}
           footer={
             <>
-              <strong className="modal-total">Total: {money(total)}</strong>
-              <button className="btn" type="button" onClick={() => setModalOpen(false)}>Cancelar</button>
+              <strong className="modal-total">Total: {money(purchaseTotal)}</strong>
+              <button className="btn" type="button" onClick={() => setPurchaseModalOpen(false)}>Cancelar</button>
               <button className="btn btn-primary" type="submit" form={purchaseFormId} disabled={saving || !selectedProduct}>
                 {saving ? 'Guardando...' : 'Guardar compra'}
               </button>
@@ -219,8 +440,8 @@ export function PurchasesPage() {
         >
           <form id={purchaseFormId} onSubmit={savePurchase}>
             <FormGrid
-              value={form}
-              onChange={handleChange}
+              value={purchaseForm}
+              onChange={handlePurchaseChange}
               fields={[
                 { name: 'date', label: 'Fecha', type: 'date', required: true },
                 { name: 'supplierId', label: 'Proveedor', type: 'select', options: supplierOptions, required: true },
@@ -233,12 +454,77 @@ export function PurchasesPage() {
                 { name: 'notes', label: 'Notas', type: 'textarea' },
               ]}
             />
-            {form.paid && !selectedShift && (
+            {purchaseForm.paid && !selectedShift && (
               <div className="system-card system-card-warning compact-card">
                 <strong>No hay caja del día abierta.</strong> Abrí la caja diaria para registrar esta compra pagada.
               </div>
             )}
-            {selectedProduct && <div className="preview-box">Stock actual: {selectedProduct.stock} · Nuevo stock estimado: {numberValue(selectedProduct.stock) + numberValue(form.qty)}</div>}
+            {selectedProduct && <div className="preview-box">Stock actual: {selectedProduct.stock} · Nuevo stock estimado: {numberValue(selectedProduct.stock) + numberValue(purchaseForm.qty)}</div>}
+          </form>
+        </Modal>
+      )}
+
+      {productModalOpen && (
+        <Modal
+          title={editingProduct ? 'Editar producto / stock' : 'Nuevo producto / stock'}
+          onClose={() => setProductModalOpen(false)}
+          footer={
+            <>
+              <button className="btn" type="button" onClick={() => setProductModalOpen(false)}>Cancelar</button>
+              <button className="btn btn-primary" type="submit" form={productFormId} disabled={saving}>
+                {saving ? 'Guardando...' : 'Guardar producto'}
+              </button>
+            </>
+          }
+        >
+          <form id={productFormId} onSubmit={saveProduct}>
+            <FormGrid
+              value={productForm}
+              onChange={handleProductChange}
+              fields={[
+                { name: 'sku', label: 'SKU / código' },
+                { name: 'name', label: 'Nombre', required: true },
+                { name: 'category', label: 'Categoría' },
+                { name: 'type', label: 'Tipo', type: 'select', options: ['Producto', 'Servicio'] },
+                { name: 'cost', label: 'Costo', type: 'number' },
+                { name: 'price', label: 'Precio venta', type: 'number' },
+                { name: 'stock', label: 'Stock actual', type: 'number', readOnly: true, hint: 'El stock se mueve desde compras, ventas y anulaciones.' },
+                { name: 'minStock', label: 'Stock mínimo', type: 'number' },
+                { name: 'unit', label: 'Unidad', type: 'select', options: ['unidad', 'servicio', 'bolsa', 'frasco', 'caja', 'kg', 'litro'] },
+                { name: 'active', label: 'Activo', type: 'checkbox' },
+              ]}
+            />
+          </form>
+        </Modal>
+      )}
+
+      {supplierModalOpen && (
+        <Modal
+          title={editingSupplier ? 'Editar proveedor' : 'Nuevo proveedor'}
+          onClose={() => setSupplierModalOpen(false)}
+          footer={
+            <>
+              <button className="btn" type="button" onClick={() => setSupplierModalOpen(false)}>Cancelar</button>
+              <button className="btn btn-primary" type="submit" form={supplierFormId} disabled={saving}>
+                {saving ? 'Guardando...' : 'Guardar proveedor'}
+              </button>
+            </>
+          }
+        >
+          <form id={supplierFormId} onSubmit={saveSupplier}>
+            <FormGrid
+              value={supplierForm}
+              onChange={handleSupplierChange}
+              fields={[
+                { name: 'name', label: 'Razón social / nombre', required: true },
+                { name: 'cuit', label: 'CUIT' },
+                { name: 'phone', label: 'Teléfono' },
+                { name: 'email', label: 'Email', type: 'email' },
+                { name: 'address', label: 'Dirección' },
+                { name: 'balance', label: 'Saldo', type: 'number' },
+                { name: 'notes', label: 'Notas', type: 'textarea' },
+              ]}
+            />
           </form>
         </Modal>
       )}

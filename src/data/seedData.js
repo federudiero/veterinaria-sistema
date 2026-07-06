@@ -446,6 +446,9 @@ export const seedData = {
     },
   ],
   auditLogs: [],
+  notifications: [],
+  portalConsultations: [],
+  emailOutbox: [],
   settings: [
     {
       id: 'app',

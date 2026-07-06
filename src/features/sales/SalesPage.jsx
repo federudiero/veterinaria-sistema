@@ -25,6 +25,7 @@ import { findOpenDailyCashSession, isSharedDailyCashSession, shiftOptionLabel, s
 import { TagFilter } from '../../components/tags/TagFilter.jsx'
 import { TagList } from '../../components/tags/TagBadge.jsx'
 import { tagNamesFromIds, tagOptionsForScope, tagsForScope } from '../../data/tagScopes.js'
+import { SalesCalendarPanel, buildCalendarDays, summarizeSalesByDate, toDateAtNoon } from './SalesCalendarPanel.jsx'
 
 const paymentMethods = ['Efectivo', 'Transferencia', 'Debito', 'Credito', 'Cuenta corriente']
 
@@ -51,6 +52,13 @@ export function SalesPage() {
   const [shiftFilter, setShiftFilter] = useState('')
   const [methodFilter, setMethodFilter] = useState('')
   const [tagFilter, setTagFilter] = useState('')
+  const [selectedDate, setSelectedDate] = useState(todayISO())
+  const [monthDate, setMonthDate] = useState(toDateAtNoon(todayISO()))
+  const calendarDays = useMemo(() => buildCalendarDays(monthDate), [monthDate])
+  const monthRange = useMemo(() => ({
+    start: calendarDays[0]?.iso || selectedDate,
+    end: calendarDays.at(-1)?.iso || selectedDate,
+  }), [calendarDays, selectedDate])
   const extraWhere = useMemo(() => [
     ...(shiftFilter ? [{ field: 'shiftId', op: '==', value: shiftFilter }] : []),
     ...(methodFilter ? [{ field: 'paymentMethod', op: '==', value: methodFilter }] : []),
@@ -65,10 +73,21 @@ export function SalesPage() {
     initialDateTo: todayISO(),
     extraWhere,
   })
+  const monthlySales = useCollection('sales', {
+    where: [
+      { field: 'date', op: '>=', value: monthRange.start },
+      { field: 'date', op: '<=', value: monthRange.end },
+      ...(sales.status ? [{ field: 'status', op: '==', value: sales.status }] : []),
+      ...extraWhere,
+    ],
+    limitCount: 1000,
+    orderByField: 'date',
+    orderDirection: 'asc',
+  })
   const products = useCollection('products', { limitCount: 300, orderByField: 'name', orderDirection: 'asc' })
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
   const tagsCollection = useCollection('tags', { limitCount: 250, orderByField: 'name', orderDirection: 'asc' })
-  const { clientOptions, patientOptions, clientMap, patientMap, productOptions, productMap, clientById, patientById } = useLookups()
+  const { clientOptions, patientOptionsForClient, clientMap, patientMap, productOptions, productMap, clientById, patientById } = useLookups()
   const [modalOpen, setModalOpen] = useState(false)
   const [voidingSale, setVoidingSale] = useState(null)
   const [voidReason, setVoidReason] = useState('')
@@ -143,6 +162,7 @@ export function SalesPage() {
     acc[key] = (acc[key] || 0) + numberValue(item.total)
     return acc
   }, {})
+  const salesByDate = useMemo(() => summarizeSalesByDate(monthlySales.items), [monthlySales.items])
 
   const columns = [
     { key: 'date', label: 'Fecha', render: (row) => dateLabel(row.date) },
@@ -175,17 +195,21 @@ export function SalesPage() {
     { key: 'notes', label: 'Notas' },
   ]
 
-  function handleChange(name, value) {
+  function handleChange(name, value, field) {
     setForm((current) => {
       const normalizedValue = name === 'creditSurchargePercent' && typeof value === 'string'
         ? value.replace(',', '.')
         : value
-      const next = {
+      let next = {
         ...current,
         [name]: normalizedValue,
         ...(name === 'date' ? { shiftId: '' } : {}),
         ...(name === 'paymentMethod' && value === 'Cuenta corriente' ? { paid: false } : {}),
         ...(name === 'paymentMethod' && current.paymentMethod === 'Cuenta corriente' && value !== 'Cuenta corriente' ? { paid: true } : {}),
+      }
+      if (typeof field?.onChange === 'function') {
+        const patch = field.onChange({ value, form: next, previousForm: current, field })
+        if (patch && typeof patch === 'object') next = { ...next, ...patch }
       }
       if (name === 'paymentMethod' && isCreditPaymentMethod(value)) {
         next.creditSurchargePercent = current.creditSurchargePercent || DEFAULT_CREDIT_SURCHARGE_PERCENT
@@ -195,12 +219,43 @@ export function SalesPage() {
     })
   }
 
+  function selectCalendarDate(isoDate) {
+    setSelectedDate(isoDate)
+    setMonthDate(toDateAtNoon(isoDate))
+    sales.setDateFrom(isoDate)
+    sales.setDateTo(isoDate)
+    sales.setPage?.(1)
+  }
+
+  function moveCalendarMonth(offset) {
+    setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1, 12, 0, 0))
+  }
+
+  function openSaleForDate(isoDate) {
+    setForm((current) => ({ ...current, date: isoDate, shiftId: '' }))
+    setModalOpen(true)
+  }
+
   function clearAllFilters() {
-    sales.clearFilters()
     setShiftFilter('')
     setMethodFilter('')
     setTagFilter('')
+    setSelectedDate(todayISO())
+    setMonthDate(toDateAtNoon(todayISO()))
+    sales.setQuery('')
+    sales.setStatus('')
+    sales.setDateFrom(todayISO())
+    sales.setDateTo(todayISO())
+    sales.setPage?.(1)
   }
+
+
+  useEffect(() => {
+    if (sales.dateFrom && sales.dateFrom === sales.dateTo && sales.dateFrom !== selectedDate) {
+      setSelectedDate(sales.dateFrom)
+      setMonthDate(toDateAtNoon(sales.dateFrom))
+    }
+  }, [sales.dateFrom, sales.dateTo, selectedDate])
 
 
   async function openCashSession() {
@@ -379,8 +434,20 @@ export function SalesPage() {
         <StatCard label="Anuladas" value={voidedCount} tone="danger" />
       </div>
 
+      <SalesCalendarPanel
+        calendarDays={calendarDays}
+        monthDate={monthDate}
+        selectedDate={selectedDate}
+        salesByDate={salesByDate}
+        monthLoading={monthlySales.loading}
+        onMoveMonth={moveCalendarMonth}
+        onSelectDate={selectCalendarDate}
+        onCreateSale={openSaleForDate}
+        canWrite={canWrite}
+      />
+
       <div className="panel method-summary">
-        <h2>Resumen diario por caja y método</h2>
+        <h2>Resumen del rango por caja y método</h2>
         <div className="inline-metrics">
           {Object.entries(totalsByShift).map(([shift, amount]) => (
             <span className="metric-pill" key={shift}>{shift}: <strong>{money(amount)}</strong></span>
@@ -461,8 +528,8 @@ export function SalesPage() {
               onChange={handleChange}
               fields={[
                 { name: 'date', label: 'Fecha', type: 'date', required: true },
-                { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
-                { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions },
+                { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true, searchPlaceholder: 'Buscar tutor...', onChange: () => ({ patientId: '' }) },
+                { name: 'patientId', label: 'Paciente', type: 'select', options: ({ form }) => patientOptionsForClient(form.clientId, form.patientId), disabled: ({ form }) => !form.clientId, searchPlaceholder: 'Buscar paciente del tutor...', hint: ({ form }) => form.clientId ? 'Solo se muestran pacientes del tutor seleccionado.' : 'Primero seleccioná un tutor.' },
                 { name: 'productId', label: 'Producto / servicio', type: 'select', options: productOptions, required: true },
                 { name: 'qty', label: 'Cantidad', type: 'number' },
                 { name: 'paymentMethod', label: 'Metodo', type: 'select', options: paymentMethods },

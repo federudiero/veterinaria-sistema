@@ -189,10 +189,10 @@ export function printDocument({ title, subtitle = '', clinic = {}, sections = []
   win.document.close()
 }
 
-export function printClinicalHistoryDocument({ clinic, client, patient, records = [], vaccines = [], prescriptions = [] }) {
+export function printClinicalHistoryDocument({ clinic, client, patient, records = [], vaccines = [], prescriptions = [], clinicalFiles = [] }) {
   printDocument({
     title: `Historia clínica de ${patient?.name || 'paciente'}`,
-    subtitle: 'Resumen clínico completo con datos del responsable, antecedentes, vacunas y recetas registradas.',
+    subtitle: 'Resumen clínico completo con datos del responsable, antecedentes, vacunas, recetas y documentos asociados.',
     clinic,
     sections: [
       {
@@ -218,6 +218,8 @@ export function printClinicalHistoryDocument({ clinic, client, patient, records 
           { label: 'Microchip', value: patient?.chip },
           { label: 'Alergias', value: patient?.allergies },
           { label: 'Alertas', value: patient?.alerts },
+          { label: 'Castración', value: patient?.castrationStatus || 'Indefinido' },
+          { label: 'Color', value: patient?.color },
         ],
       },
       {
@@ -229,7 +231,7 @@ export function printClinicalHistoryDocument({ clinic, client, patient, records 
           { key: 'professional', label: 'Profesional' },
           { key: 'reason', label: 'Motivo' },
           { key: 'diagnosis', label: 'Diagnóstico' },
-          { key: 'treatment', label: 'Tratamiento' },
+          { key: 'indications', label: 'Plan clínico / indicaciones' },
           { key: 'notes', label: 'Notas' },
         ],
         rows: records,
@@ -244,6 +246,7 @@ export function printClinicalHistoryDocument({ clinic, client, patient, records 
           { key: 'nextDueDate', label: 'Próximo', value: (row) => dateLabel(row.nextDueDate) },
           { key: 'professional', label: 'Profesional' },
           { key: 'status', label: 'Estado' },
+          { key: 'notes', label: 'Notas' },
         ],
         rows: vaccines,
       },
@@ -253,12 +256,25 @@ export function printClinicalHistoryDocument({ clinic, client, patient, records 
         columns: [
           { key: 'date', label: 'Fecha', value: (row) => dateLabel(row.date) },
           { key: 'professional', label: 'Profesional' },
-          { key: 'diagnosis', label: 'Diagnóstico' },
           { key: 'medication', label: 'Medicación' },
           { key: 'instructions', label: 'Indicaciones' },
           { key: 'status', label: 'Estado' },
+          { key: 'notes', label: 'Notas' },
         ],
         rows: prescriptions,
+      },
+      {
+        title: 'Documentos PDF asociados',
+        type: 'table',
+        columns: [
+          { key: 'date', label: 'Fecha', value: (row) => dateLabel(row.date) },
+          { key: 'title', label: 'Título' },
+          { key: 'documentType', label: 'Tipo' },
+          { key: 'fileName', label: 'Archivo' },
+          { key: 'visibleInPortal', label: 'Portal', value: (row) => row.visibleInPortal ? 'Visible para tutor' : 'Solo interno' },
+          { key: 'notes', label: 'Observaciones' },
+        ],
+        rows: clinicalFiles,
       },
     ],
   })

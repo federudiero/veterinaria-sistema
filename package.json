@@ -17,10 +17,11 @@
     "check:deploy": "node scripts/check-deploy.mjs",
     "qa:release": "npm run check:release && npm run build",
     "build:hosting": "npm run check:deploy && vite build --mode production",
-    "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes",
+    "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes,storage",
     "deploy:hosting": "npm run build:hosting && firebase deploy --only hosting",
-    "deploy:all": "npm run build:hosting && firebase deploy --only firestore:rules,firestore:indexes,hosting",
-    "firebase:emulators": "firebase emulators:start"
+    "deploy:all": "npm run build:hosting && firebase deploy --only firestore:rules,firestore:indexes,storage,hosting",
+    "firebase:emulators": "firebase emulators:start",
+    "deploy:storage": "firebase deploy --only storage"
   },
   "dependencies": {
     "firebase": "11.6.1",

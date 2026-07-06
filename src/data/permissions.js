@@ -11,8 +11,8 @@ export const PERMISSION_GROUPS = [
   {
     title: 'Clínica',
     items: [
-      ['clinica.read', 'Ver historia clínica, vacunas y recetas'],
-      ['clinica.write', 'Crear/editar historia clínica, vacunas y recetas'],
+      ['clinica.read', 'Ver historia clínica, vacunas, recetas y documentos PDF'],
+      ['clinica.write', 'Crear/editar historia clínica, vacunas, recetas y documentos PDF'],
       ['internacion.read', 'Ver internación'],
       ['internacion.write', 'Crear/editar internación'],
     ],
@@ -44,6 +44,8 @@ export const PERMISSION_GROUPS = [
     title: 'Sistema',
     items: [
       ['reportes.read', 'Ver reportes'],
+      ['notificaciones.read', 'Ver notificaciones, consultas del portal y bandeja de emails'],
+      ['notificaciones.write', 'Gestionar notificaciones, consultas del portal y emails pendientes'],
       ['documentos.read', 'Generar documentos profesionales'],
       ['backup.read', 'Ver respaldo'],
       ['backup.write', 'Generar backup JSON'],
@@ -91,6 +93,8 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'internacion.write',
     'reportes.read',
     'documentos.read',
+    'notificaciones.read',
+    'notificaciones.write',
   ],
   recepcion: [
     'clientes.read',
@@ -103,6 +107,8 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'ventas.write',
     'caja.read',
     'documentos.read',
+    'notificaciones.read',
+    'notificaciones.write',
   ],
   caja: [
     'clientes.read',
@@ -114,6 +120,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'caja.close',
     'reportes.read',
     'documentos.read',
+    'notificaciones.read',
   ],
   stock: [
     'stock.read',
@@ -134,6 +141,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'internacion.read',
     'mutualismo.read',
     'reportes.read',
+    'notificaciones.read',
     'configuracion.read',
     'documentos.read',
     'backup.read',
@@ -147,8 +155,8 @@ export const DEFAULT_ROLE_PERMISSIONS = {
 
 export const ROLE_ACCESS_DESCRIPTIONS = {
   admin: 'Acceso total al sistema. En Firestore se guarda como rol administrador; no depende del checklist.',
-  veterinario: 'Atiende pacientes: ve clientes, pacientes, historia clínica, vacunas, recetas, internación, agenda, reportes y documentos. Puede crear/editar datos clínicos y agenda.',
-  recepcion: 'Opera mesa de entrada: crea clientes y pacientes, agenda turnos, carga ventas, consulta caja y genera documentos.',
+  veterinario: 'Atiende pacientes: ve clientes, pacientes, historia clínica, vacunas, recetas, internación, agenda, notificaciones, reportes y documentos. Puede crear/editar datos clínicos y agenda.',
+  recepcion: 'Opera mesa de entrada: crea clientes y pacientes, agenda turnos, responde consultas del portal, carga ventas, consulta caja y genera documentos.',
   caja: 'Opera ventas y caja: ve clientes/pacientes, crea o cobra ventas, registra movimientos, abre/cierra cajas, consulta reportes y documentos.',
   stock: 'Gestiona depósito: ve y edita productos/stock, proveedores y compras. También consulta reportes.',
   lectura: 'Solo lectura operativa: puede consultar clientes, pacientes, clínica, agenda, ventas, caja, stock, compras, internación, mutualismo, reportes, configuración, documentos y respaldo. No edita.',

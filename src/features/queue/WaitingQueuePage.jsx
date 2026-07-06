@@ -5,7 +5,7 @@ import { patientContactExportColumns } from '../../utils/patientExportColumns.js
 import { withClientPatientLookupFields } from '../../utils/lookupPayload.js'
 
 export function WaitingQueuePage() {
-  const { clientOptions, patientOptions, clientMap, patientMap, clientById, patientById } = useLookups()
+  const { clientOptions, patientOptionsForClient, clientMap, patientMap, clientById, patientById } = useLookups()
 
   const columns = [
     { key: 'clientId', label: 'Cliente', render: (row) => clientMap[row.clientId] || '-' },
@@ -42,8 +42,8 @@ export function WaitingQueuePage() {
       exportColumns={exportColumns}
       initialValues={{ clientId: '', patientId: '', service: '', priority: 'Media', professional: '', status: 'En espera', notes: '' }}
       fields={[
-        { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true },
-        { name: 'patientId', label: 'Paciente', type: 'select', options: patientOptions, required: true },
+        { name: 'clientId', label: 'Cliente', type: 'select', options: clientOptions, required: true, searchPlaceholder: 'Buscar tutor...', onChange: () => ({ patientId: '' }) },
+        { name: 'patientId', label: 'Paciente', type: 'select', options: ({ form }) => patientOptionsForClient(form.clientId, form.patientId), required: true, disabled: ({ form }) => !form.clientId, searchPlaceholder: 'Buscar paciente del tutor...', hint: ({ form }) => form.clientId ? 'Solo se muestran pacientes del tutor seleccionado.' : 'Primero seleccioná un tutor.' },
         { name: 'service', label: 'Servicio / motivo' },
         { name: 'priority', label: 'Prioridad', type: 'select', options: ['Baja', 'Media', 'Alta', 'Urgente'] },
         { name: 'professional', label: 'Profesional' },
