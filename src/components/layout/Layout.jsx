@@ -202,13 +202,13 @@ export function Layout() {
             <div className="mobile-more-grid">
               {mobileNavigation.rest.map((item) => (
                 <NavLink key={item.path} to={item.path} onClick={handleMobileNavClick}>
-                  <span>{item.icon}</span>
+                  <span className="mobile-nav-icon-frame"><AppIcon name={item.icon} size={20} /></span>
                   <strong>{item.label}</strong>
                 </NavLink>
               ))}
               {canUseQuickSale && (
                 <NavLink to={QUICK_SALE_PATH} onClick={handleMobileNavClick}>
-                  <span>⚡</span>
+                  <span className="mobile-nav-icon-frame"><AppIcon name="bolt" size={20} /></span>
                   <strong>Venta rápida</strong>
                 </NavLink>
               )}
@@ -220,7 +220,7 @@ export function Layout() {
       <nav className="mobile-bottom-nav" aria-label="Navegación mobile rápida">
         {mobileNavigation.primary.slice(0, 4).map((item) => (
           <NavLink key={item.path} to={item.path} onClick={handleMobileNavClick}>
-            <span>{item.icon}</span>
+            <span className="mobile-bottom-icon-frame"><AppIcon name={item.icon} size={20} /></span>
             <strong>{item.label}</strong>
           </NavLink>
         ))}
@@ -230,7 +230,7 @@ export function Layout() {
           onClick={() => setMobileMoreOpen((value) => !value)}
           aria-expanded={mobileMoreOpen}
         >
-          <span>☰</span>
+          <span className="mobile-bottom-icon-frame"><AppIcon name="menu" size={20} /></span>
           <strong>Más</strong>
         </button>
       </nav>

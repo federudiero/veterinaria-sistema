@@ -129,6 +129,13 @@ const ICONS = {
       <path d="M10 21h4" />
     </Svg>
   ),
+  menu: (props) => (
+    <Svg {...props}>
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </Svg>
+  ),
 }
 
 export function AppIcon({ name, fallback = 'dashboard', ...props }) {

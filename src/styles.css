@@ -4965,3 +4965,39 @@ code {
     margin-bottom: 12px;
   }
 }
+
+/* =========================================================
+   Ajuste navegación: iconografía profesional uniforme
+   ========================================================= */
+.nav-icon-frame,
+.mobile-nav-icon-frame,
+.mobile-bottom-icon-frame {
+  color: var(--primary);
+}
+
+.mobile-nav-icon-frame,
+.mobile-bottom-icon-frame {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.mobile-nav-icon-frame {
+  width: 34px;
+  height: 34px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .62);
+  border: 1px solid rgba(134, 121, 144, .18);
+}
+
+.mobile-bottom-icon-frame {
+  width: 24px;
+  height: 24px;
+}
+
+.mobile-more-grid a.active .mobile-nav-icon-frame,
+.mobile-more-grid a:hover .mobile-nav-icon-frame,
+.mobile-bottom-nav a.active .mobile-bottom-icon-frame,
+.mobile-bottom-nav button.active .mobile-bottom-icon-frame {
+  color: var(--primary);
+}
