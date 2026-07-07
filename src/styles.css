@@ -12,6 +12,7 @@
   --bg-soft: #f5fafc;
   --panel: #ffffff;
   --surface: #ffffff;
+<<<<<<< HEAD
   --surface-elevated: rgba(255, 255, 255, .88);
   --surface-strong: rgba(242, 237, 247, .96);
   --text: var(--color-2);
@@ -31,6 +32,28 @@
   --info: #1d4ed8;
   --info-soft: rgba(29, 78, 216, 0.10);
   --shadow: 0 22px 60px rgba(44, 27, 72, 0.10);
+=======
+  --surface-elevated: #ffffff;
+  --surface-strong: #f8fafc;
+  --panel: #ffffff;
+  --bg-soft: #f8fbfa;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: rgba(15, 23, 42, 0.12);
+  --primary: #0f766e;
+  --primary-strong: #0b5f59;
+  --primary-soft: rgba(15, 118, 110, 0.1);
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.1);
+  --warning: #d97706;
+  --warning-soft: rgba(217, 119, 6, 0.13);
+  --success: #16a34a;
+  --success-soft: rgba(22, 163, 74, 0.12);
+  --info: #2563eb;
+  --info-soft: rgba(37, 99, 235, 0.1);
+  --shadow: 0 22px 60px rgba(15, 23, 42, 0.08);
+  --shadow-soft: 0 14px 34px rgba(15, 23, 42, 0.055);
+>>>>>>> dc56ca7 (primer subida)
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -294,104 +317,6 @@ a { color: inherit; text-decoration: none; }
 .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(14px, 4vh, 36px);
-  background:
-    radial-gradient(circle at top left, rgba(20, 184, 166, .16), transparent 32rem),
-    rgba(15, 23, 42, 0.46);
-  backdrop-filter: blur(10px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.modal {
-  width: min(calc(100vw - 32px), 880px);
-  max-height: calc(100dvh - 32px);
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface-elevated);
-  border-radius: 28px;
-  border: 1px solid rgba(198, 210, 214, .92);
-  box-shadow: 0 34px 110px rgba(15, 23, 42, .30);
-  overflow: hidden;
-  isolation: isolate;
-}
-
-.modal-sm { width: min(calc(100vw - 32px), 520px); }
-.modal-md { width: min(calc(100vw - 32px), 720px); }
-.modal-lg { width: min(calc(100vw - 32px), 880px); }
-.modal-xl { width: min(calc(100vw - 32px), 1040px); }
-
-.modal-header,
-.modal-footer {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 18px;
-  background: rgba(240, 244, 242, .96);
-  backdrop-filter: blur(12px);
-}
-
-.modal-header {
-  border-bottom: 1px solid var(--border);
-}
-
-.modal-header-copy {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.modal-kicker {
-  color: var(--primary);
-  font-size: .72rem;
-  font-weight: 900;
-  letter-spacing: .13em;
-  text-transform: uppercase;
-}
-
-.modal-header h2 {
-  margin: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: clamp(1.15rem, 2vw, 1.45rem);
-  letter-spacing: -.035em;
-}
-
-.modal-close {
-  flex: 0 0 auto;
-}
-
-.modal-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 18px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  background: linear-gradient(180deg, rgba(239,243,241,.96), rgba(245,248,246,.98));
-}
-
-.modal-body form {
-  margin: 0;
-}
-
-.modal-footer {
-  border-top: 1px solid var(--border);
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  box-shadow: 0 -14px 36px rgba(15, 23, 42, .04);
-}
 .modal-total { margin-right: auto; }
 .preview-box, .alert {
   margin-top: 14px;
@@ -510,14 +435,6 @@ a { color: inherit; text-decoration: none; }
   .section-actions > * { flex: 1; }
   .search-input { min-width: 0; }
   .form-grid { grid-template-columns: 1fr; }
-  .nav-list { grid-template-columns: none; }
-  .data-table { min-width: 0; }
-  .data-table thead { display: none; }
-  .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
-  .data-table tr { border-bottom: 1px solid var(--border); padding: 10px 0; }
-  .data-table td { border: 0; display: flex; justify-content: space-between; gap: 12px; }
-  .data-table td::before { content: attr(data-label); color: var(--muted); font-weight: 800; }
-  .row-actions { justify-content: flex-end; }
 }
 
 
@@ -676,15 +593,6 @@ a { color: inherit; text-decoration: none; }
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes modal-enter {
-  from { opacity: 0; transform: translateY(16px) scale(.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes backdrop-enter {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 
 @keyframes toast-enter {
   from { opacity: 0; transform: translateX(24px) scale(.98); }
@@ -713,8 +621,6 @@ a { color: inherit; text-decoration: none; }
   border-color: rgba(44, 27, 72, .45);
   box-shadow: 0 0 0 3px rgba(185, 175, 201, .08), 0 6px 16px rgba(37,55,72,.04);
 }
-.modal-backdrop { animation: backdrop-enter .18s ease both; }
-.modal, .confirm-dialog { animation: modal-enter .22s ease both; }
 
 .toast-stack {
   position: fixed;
@@ -804,37 +710,6 @@ a { color: inherit; text-decoration: none; }
 }
 
 
-@media (max-width: 720px) {
-  .modal-backdrop {
-    align-items: flex-end;
-    justify-content: center;
-    padding: 0;
-  }
-
-  .modal,
-  .modal-sm,
-  .modal-md,
-  .modal-lg,
-  .modal-xl {
-    width: 100%;
-    max-height: calc(100dvh - 10px);
-    border-radius: 24px 24px 0 0;
-  }
-
-  .modal-header,
-  .modal-footer {
-    padding: 14px;
-  }
-
-  .modal-body {
-    padding: 14px;
-  }
-
-  .modal-footer .btn,
-  .modal-footer .modal-total {
-    width: 100%;
-  }
-}
 
 
 body::-webkit-scrollbar, .table-wrap::-webkit-scrollbar, .nav-list::-webkit-scrollbar {
@@ -2543,46 +2418,6 @@ code {
 
 /* Ajuste mobile final: tablas legibles y acciones utilizables en teléfono */
 @media (max-width: 720px) {
-  .data-table tr {
-    display: grid;
-    gap: 6px;
-    padding: 12px 0;
-  }
-
-  .data-table td {
-    display: grid;
-    grid-template-columns: minmax(96px, .42fr) minmax(0, 1fr);
-    align-items: start;
-    gap: 10px;
-    padding: 7px 0;
-  }
-
-  .data-table td::before {
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .data-table .cell-content {
-    min-width: 0;
-    text-align: right;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  .data-table .row-actions {
-    display: grid;
-    grid-template-columns: minmax(96px, .42fr) minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .data-table .row-actions > :not(:first-child) {
-    margin-top: 6px;
-  }
-
-  .data-table .row-actions .btn {
-    width: 100%;
-    min-width: 0;
-  }
 
   .export-actions {
     width: 100%;
@@ -2594,7 +2429,6 @@ code {
 /* =========================================================
    Cierre UX profesional: buscadores claros, tablas grandes y microinteracciones
    ========================================================= */
-html { scroll-behavior: smooth; }
 
 .main {
   background:
@@ -2768,23 +2602,6 @@ html { scroll-behavior: smooth; }
   .toolbar-filter-group {
     display: grid;
     grid-template-columns: 1fr;
-  }
-
-  .data-table {
-    min-width: 0;
-  }
-
-  .data-table tbody tr {
-    margin: 0 0 12px;
-    padding: 12px;
-    border: 1px solid rgba(148, 163, 184, .20);
-    border-radius: 18px;
-    background: rgba(255,255,255,.86);
-    box-shadow: 0 12px 28px rgba(15,23,42,.055);
-  }
-
-  .data-table .cell-content {
-    max-width: 100%;
   }
 
   .pagination-bar {
@@ -3525,6 +3342,7 @@ html { scroll-behavior: smooth; }
   gap: 12px;
 }
 
+<<<<<<< HEAD
 .patient-history-form-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -3558,6 +3376,8 @@ html { scroll-behavior: smooth; }
   border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
   box-shadow: 0 10px 24px rgba(44, 27, 72, .08);
 }
+=======
+>>>>>>> dc56ca7 (primer subida)
 
 .patient-history-quick textarea {
   min-height: 140px;
@@ -3567,6 +3387,7 @@ html { scroll-behavior: smooth; }
   justify-self: start;
 }
 
+<<<<<<< HEAD
 .patient-history-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(280px, .75fr);
@@ -3576,6 +3397,10 @@ html { scroll-behavior: smooth; }
 
 .patient-history-main,
 .patient-history-side {
+=======
+
+.patient-history-main {
+>>>>>>> dc56ca7 (primer subida)
   display: grid;
   gap: 12px;
 }
@@ -3710,7 +3535,11 @@ html { scroll-behavior: smooth; }
   background: color-mix(in srgb, var(--primary) 12%, var(--panel));
   color: var(--primary);
   border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+<<<<<<< HEAD
   box-shadow: 0 10px 22px rgba(44, 27, 72, .08);
+=======
+  box-shadow: 0 10px 22px rgba(15, 118, 110, .08);
+>>>>>>> dc56ca7 (primer subida)
 }
 
 .inventory-panel-stack {
@@ -3719,7 +3548,10 @@ html { scroll-behavior: smooth; }
 }
 
 @media (max-width: 920px) {
+<<<<<<< HEAD
   .patient-history-layout,
+=======
+>>>>>>> dc56ca7 (primer subida)
   .patient-history-meta {
     grid-template-columns: 1fr;
   }
@@ -3735,10 +3567,13 @@ html { scroll-behavior: smooth; }
     width: 100%;
   }
 
+<<<<<<< HEAD
   .patient-history-form-tabs {
     display: grid;
     grid-template-columns: 1fr;
   }
+=======
+>>>>>>> dc56ca7 (primer subida)
 
   .section-tabs {
     display: grid;
@@ -3778,12 +3613,21 @@ html { scroll-behavior: smooth; }
 .module-tab:hover {
   transform: translateY(-1px);
   box-shadow: 0 14px 28px rgba(37, 55, 72, .07);
+<<<<<<< HEAD
   border-color: rgba(185, 175, 201, .28);
 }
 
 .module-tab.active {
   border-color: rgba(185, 175, 201, .42);
   background: linear-gradient(135deg, rgba(185, 175, 201, .14), rgba(255, 255, 255, .86));
+=======
+  border-color: rgba(45, 143, 132, .28);
+}
+
+.module-tab.active {
+  border-color: rgba(45, 143, 132, .42);
+  background: linear-gradient(135deg, rgba(45, 143, 132, .14), rgba(255, 255, 255, .86));
+>>>>>>> dc56ca7 (primer subida)
   box-shadow: 0 16px 34px rgba(37, 55, 72, .08);
 }
 
@@ -4070,21 +3914,34 @@ html { scroll-behavior: smooth; }
   position: relative;
   display: inline-flex;
   align-items: center;
+<<<<<<< HEAD
   z-index: 1200;
+=======
+>>>>>>> dc56ca7 (primer subida)
 }
 
 .notification-bell {
   position: relative;
+<<<<<<< HEAD
   width: 40px;
   height: 40px;
   border: 1px solid rgba(134, 121, 144, .24);
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(242, 237, 247, .96), rgba(255, 255, 255, .88));
   color: var(--color-2);
+=======
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .72);
+  color: var(--text);
+>>>>>>> dc56ca7 (primer subida)
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+<<<<<<< HEAD
   box-shadow: 0 12px 26px rgba(44, 27, 72, .08);
 }
 
@@ -4098,28 +3955,49 @@ html { scroll-behavior: smooth; }
 .notification-bell.has-unread {
   border-color: rgba(185, 175, 201, .85);
   background: linear-gradient(135deg, rgba(185, 175, 201, .34), rgba(242, 237, 247, .98));
+=======
+  box-shadow: 0 10px 22px rgba(15, 23, 42, .05);
+}
+
+.notification-bell.has-unread {
+  border-color: rgba(217, 119, 6, .34);
+  background: linear-gradient(135deg, rgba(251, 191, 36, .16), rgba(255, 255, 255, .92));
+>>>>>>> dc56ca7 (primer subida)
 }
 
 .notification-bell strong {
   position: absolute;
   top: -7px;
   right: -7px;
+<<<<<<< HEAD
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
   background: var(--color-2);
+=======
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #dc2626;
+>>>>>>> dc56ca7 (primer subida)
   color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: .68rem;
   font-weight: 900;
+<<<<<<< HEAD
   border: 2px solid var(--color-5);
+=======
+  border: 2px solid var(--panel);
+>>>>>>> dc56ca7 (primer subida)
 }
 
 .notification-popover {
   position: absolute;
+<<<<<<< HEAD
   top: calc(100% + 12px);
   left: 0;
   right: auto;
@@ -4150,10 +4028,27 @@ html { scroll-behavior: smooth; }
 
 .notification-popover-head {
   position: relative;
+=======
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  width: min(360px, calc(100vw - 24px));
+  max-height: 72vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 22px 54px rgba(15, 23, 42, .18);
+  padding: 10px;
+}
+
+.notification-popover-head {
+>>>>>>> dc56ca7 (primer subida)
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+<<<<<<< HEAD
   padding: 8px 8px 12px;
   border-bottom: 1px solid rgba(134, 121, 144, .18);
 }
@@ -4161,10 +4056,15 @@ html { scroll-behavior: smooth; }
 .notification-popover-head strong {
   color: var(--color-2);
   font-weight: 900;
+=======
+  padding: 8px 8px 10px;
+  border-bottom: 1px solid var(--border);
+>>>>>>> dc56ca7 (primer subida)
 }
 
 .notification-popover-head a {
   font-weight: 900;
+<<<<<<< HEAD
   color: var(--color-2);
   text-decoration: none;
 }
@@ -4188,6 +4088,23 @@ html { scroll-behavior: smooth; }
   gap: 7px;
   padding: 12px 10px;
   border-bottom: 1px solid rgba(134, 121, 144, .16);
+=======
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.notification-empty {
+  padding: 16px 8px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.notification-popover-item {
+  display: grid;
+  gap: 7px;
+  padding: 10px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+>>>>>>> dc56ca7 (primer subida)
 }
 
 .notification-popover-item:last-child {
@@ -4203,20 +4120,31 @@ html { scroll-behavior: smooth; }
 
 .notification-popover-item strong {
   font-size: .9rem;
+<<<<<<< HEAD
   color: var(--color-2);
+=======
+>>>>>>> dc56ca7 (primer subida)
 }
 
 .notification-popover-item span,
 .notification-popover-item small,
 .notification-popover-item p {
+<<<<<<< HEAD
   color: var(--color-3);
+=======
+  color: var(--muted);
+>>>>>>> dc56ca7 (primer subida)
   font-size: .78rem;
   line-height: 1.35;
 }
 
 .notification-popover-item p {
   margin: 0;
+<<<<<<< HEAD
   color: var(--color-2);
+=======
+  color: var(--text);
+>>>>>>> dc56ca7 (primer subida)
 }
 
 .notifications-page {
@@ -4237,7 +4165,11 @@ html { scroll-behavior: smooth; }
 }
 
 .notification-summary-card span {
+<<<<<<< HEAD
   color: var(--color-3);
+=======
+  color: var(--muted);
+>>>>>>> dc56ca7 (primer subida)
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -4250,7 +4182,11 @@ html { scroll-behavior: smooth; }
 }
 
 .notification-summary-card small {
+<<<<<<< HEAD
   color: var(--color-3);
+=======
+  color: var(--muted);
+>>>>>>> dc56ca7 (primer subida)
   line-height: 1.35;
 }
 
@@ -4343,6 +4279,7 @@ html { scroll-behavior: smooth; }
   }
 
   .notification-popover {
+<<<<<<< HEAD
     position: fixed;
     top: 78px;
     left: 12px;
@@ -4353,10 +4290,14 @@ html { scroll-behavior: smooth; }
 
   .notification-popover::before {
     display: none;
+=======
+    right: -52px;
+>>>>>>> dc56ca7 (primer subida)
   }
 }
 
 /* =========================================================
+<<<<<<< HEAD
    Sistema visual profesional v8 · clínica moderna
    Paleta elegida: teal médico + superficies limpias + estados claros
    ========================================================= */
@@ -5181,10 +5122,123 @@ body::-webkit-scrollbar-thumb:hover,
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+=======
+   Mobile clínica profesional: navegación, filtros y fichas
+   ========================================================= */
+.mobile-bottom-nav,
+.mobile-nav-backdrop {
+  display: none;
+}
+
+.toolbar-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 360px;
+}
+
+.toolbar-search-row .search-input-wide {
+  flex: 1 1 auto;
+  min-width: min(320px, 100%);
+}
+
+.toolbar-filter-toggle {
+  display: none;
+  flex: 0 0 auto;
+}
+
+.toolbar-advanced-filters {
+  display: contents;
+}
+
+.toolbar-extra-filters {
+  display: contents;
+}
+
+.toolbar-active-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.toolbar-active-chips span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 9%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border));
+  color: var(--primary-strong);
+  font-size: .8rem;
+  font-weight: 800;
+}
+
+.client-mobile-detail {
+  display: grid;
+  gap: 16px;
+}
+
+.client-detail-summary {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 6%, var(--panel)), var(--panel));
+}
+
+.client-detail-summary h3,
+.client-patients-panel h4 {
+  margin: 0;
+  letter-spacing: -.035em;
+}
+
+.client-detail-summary p,
+.client-detail-notes p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.client-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.client-detail-meta span,
+.client-detail-notes {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 15px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 92%, var(--bg) 8%);
+  overflow-wrap: anywhere;
+}
+
+.client-detail-meta strong,
+.client-detail-notes strong {
+  color: var(--muted);
+  font-size: .76rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.client-patients-panel {
+  display: grid;
+  gap: 12px;
+>>>>>>> dc56ca7 (primer subida)
 }
 
 .client-patient-card {
   display: grid;
+<<<<<<< HEAD
   gap: 14px;
   border: 1px solid var(--border);
   border-radius: 24px;
@@ -5254,10 +5308,53 @@ body::-webkit-scrollbar-thumb:hover,
   font-size: .75rem;
   letter-spacing: .08em;
   text-transform: uppercase;
+=======
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 94%, var(--bg) 6%);
+}
+
+.client-patient-card > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.client-patient-card > div:first-child strong {
+  font-size: 1rem;
+  letter-spacing: -.02em;
+}
+
+.client-patient-card > div:first-child span,
+.client-patient-meta span {
+  color: var(--muted);
+}
+
+.client-patient-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.client-patient-meta span,
+.client-patient-alerts span {
+  padding: 8px 9px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--bg) 70%, var(--panel) 30%);
+  font-size: .86rem;
+}
+
+.client-patient-alerts {
+  display: grid;
+  gap: 8px;
+>>>>>>> dc56ca7 (primer subida)
 }
 
 .client-patient-actions {
   display: flex;
+<<<<<<< HEAD
   justify-content: flex-end;
 }
 
@@ -5294,10 +5391,755 @@ body::-webkit-scrollbar-thumb:hover,
   }
 
   .client-patient-details {
+=======
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.patient-clinical-actions {
+  position: sticky;
+  top: -18px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  margin: -4px -4px 0;
+  border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 90%, var(--bg) 10%);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, .07);
+}
+
+.patient-clinical-actions .btn {
+  flex: 1 1 140px;
+}
+
+@media (max-width: 1080px) {
+  .sidebar {
+    z-index: 40;
+  }
+
+  .nav-list {
+    display: none;
+  }
+
+  .main {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    z-index: 900;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+    border-radius: 24px;
+    background: color-mix(in srgb, var(--panel) 92%, var(--bg) 8%);
+    box-shadow: 0 18px 48px rgba(15, 23, 42, .18);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .mobile-bottom-nav a,
+  .mobile-bottom-nav button {
+    min-width: 0;
+    min-height: 54px;
+    border: 1px solid transparent;
+    border-radius: 18px;
+    background: transparent;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+    gap: 2px;
+    padding: 6px 4px;
+    text-align: center;
+    font-weight: 900;
+  }
+
+  .mobile-bottom-nav a span,
+  .mobile-bottom-nav button span {
+    font-size: 1.12rem;
+    line-height: 1;
+  }
+
+  .mobile-bottom-nav a strong,
+  .mobile-bottom-nav button strong {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .68rem;
+    line-height: 1.1;
+  }
+
+  .mobile-bottom-nav a.active,
+  .mobile-bottom-nav button.active {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 11%, var(--panel));
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+  }
+
+  .mobile-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 880;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 18px 12px calc(92px + env(safe-area-inset-bottom));
+    background: rgba(15, 23, 42, .34);
+  }
+
+  .mobile-more-sheet {
+    width: min(100%, 560px);
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+    border-radius: 28px;
+    background: var(--panel);
+    box-shadow: 0 30px 80px rgba(15, 23, 42, .28);
+    animation: mobile-sheet-in .2s cubic-bezier(.16, 1, .3, 1) both;
+  }
+
+  .mobile-more-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .mobile-more-head > div {
+    display: grid;
+    gap: 2px;
+  }
+
+  .mobile-more-head span {
+    color: var(--muted);
+    font-size: .86rem;
+  }
+
+  .mobile-more-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .mobile-more-grid a {
+    min-width: 0;
+    min-height: 74px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--panel) 92%, var(--bg) 8%);
+  }
+
+  .mobile-more-grid a.active {
+    color: var(--primary);
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+    background: color-mix(in srgb, var(--primary) 9%, var(--panel));
+  }
+}
+
+@keyframes mobile-sheet-in {
+  from { opacity: 0; transform: translateY(18px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 720px) {
+  .list-toolbar {
+    gap: 10px;
+  }
+
+  .toolbar-search-row {
+    width: 100%;
+  }
+
+  .toolbar-filter-toggle {
+    display: inline-flex;
+    min-height: 42px;
+  }
+
+  .toolbar-advanced-filters {
+    display: none;
+    gap: 12px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  }
+
+  .toolbar-advanced-filters.is-open {
+    display: grid;
+  }
+
+  .toolbar-extra-filters {
+    display: grid;
+    gap: 10px;
+  }
+
+  .toolbar-active-chips {
+    gap: 6px;
+  }
+
+  .toolbar-active-chips span {
+    font-size: .74rem;
+    min-height: 28px;
+  }
+
+  .mobile-card-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .client-detail-meta,
+  .client-patient-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .client-patient-actions {
+    display: grid;
+>>>>>>> dc56ca7 (primer subida)
     grid-template-columns: 1fr;
   }
 
   .client-patient-actions .btn {
     width: 100%;
   }
+<<<<<<< HEAD
+=======
+
+  .patient-clinical-actions {
+    top: -14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 8px;
+  }
+
+  .patient-clinical-actions .btn {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .patient-history-form-actions {
+    position: sticky;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    z-index: 6;
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+    margin: 0 -6px;
+    border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border));
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--panel) 94%, var(--bg) 6%);
+    box-shadow: 0 -10px 28px rgba(15, 23, 42, .09);
+  }
+
+  .patient-history-form-actions .btn {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .modal-footer {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .quick-sale-ticket {
+    bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 560px) {
+  .mobile-more-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-card-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .panel,
+  .table-wrap,
+  .stat-card,
+  .modal,
+  .sidebar,
+  .mobile-bottom-nav {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .panel,
+  .mobile-data-card,
+  .stat-card,
+  .client-patient-card {
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .06);
+  }
+}
+
+/* =========================================================
+   Ajuste mobile específico: historia clínica con más área útil
+   ========================================================= */
+.clinical-history-sheet.modal-xl {
+  width: min(calc(100vw - 28px), 1100px);
+}
+
+.clinical-history-sheet .patient-history-modal {
+  gap: 12px;
+}
+
+.clinical-history-sheet .patient-history-main,
+.clinical-history-sheet .patient-history-quick {
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .clinical-history-sheet.modal,
+  .clinical-history-sheet.modal-sm,
+  .clinical-history-sheet.modal-md,
+  .clinical-history-sheet.modal-lg,
+  .clinical-history-sheet.modal-xl {
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .clinical-history-sheet .modal-header {
+    min-height: 52px;
+    padding: 10px 12px 9px;
+  }
+
+  .clinical-history-sheet .modal-kicker {
+    font-size: .58rem;
+    letter-spacing: .11em;
+  }
+
+  .clinical-history-sheet .modal-header h2 {
+    max-width: calc(100vw - 70px);
+    font-size: 1rem;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .clinical-history-sheet .modal-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+  }
+
+  .clinical-history-sheet .modal-body {
+    padding: 8px 10px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .clinical-history-sheet .modal-footer {
+    display: none;
+  }
+
+  .clinical-history-sheet .patient-history-modal {
+    gap: 8px;
+  }
+
+  .clinical-history-sheet .patient-clinical-actions {
+    top: -8px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin: 0 -2px;
+    padding: 6px;
+    overflow-x: auto;
+    border-radius: 16px;
+    scrollbar-width: none;
+  }
+
+  .clinical-history-sheet .patient-clinical-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .clinical-history-sheet .patient-clinical-actions .btn {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 92px;
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: .78rem;
+    border-radius: 12px;
+  }
+
+  .clinical-history-sheet .patient-history-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .clinical-history-sheet .patient-history-summary .eyebrow {
+    display: none;
+  }
+
+  .clinical-history-sheet .patient-history-summary h3 {
+    font-size: 1.02rem;
+    line-height: 1.1;
+  }
+
+  .clinical-history-sheet .patient-history-summary p {
+    font-size: .78rem;
+    line-height: 1.25;
+  }
+
+  .clinical-history-sheet .patient-history-meta {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 1px;
+    scrollbar-width: none;
+  }
+
+  .clinical-history-sheet .patient-history-meta::-webkit-scrollbar {
+    display: none;
+  }
+
+  .clinical-history-sheet .patient-history-meta span {
+    flex: 0 0 auto;
+    min-width: 118px;
+    gap: 2px;
+    padding: 7px 8px;
+    border-radius: 12px;
+    font-size: .72rem;
+  }
+
+  .clinical-history-sheet .patient-history-alerts {
+    gap: 5px;
+  }
+
+  .clinical-history-sheet .patient-history-alerts span {
+    padding: 7px 8px;
+    border-radius: 12px;
+    font-size: .76rem;
+  }
+
+  .clinical-history-sheet .panel-soft,
+  .clinical-history-sheet .patient-history-form-block {
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .clinical-history-sheet .patient-history-section-head {
+    display: grid;
+    gap: 6px;
+  }
+
+  .clinical-history-sheet .patient-history-section-head h4 {
+    font-size: .98rem;
+  }
+
+  .clinical-history-sheet .patient-history-section-head p {
+    display: none;
+  }
+
+  .clinical-history-sheet .patient-history-section-head span {
+    width: fit-content;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 9%, var(--panel));
+    font-size: .74rem;
+  }
+
+  .clinical-history-sheet .patient-history-item {
+    gap: 6px;
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .clinical-history-sheet .patient-history-item-head {
+    align-items: flex-start;
+  }
+
+  .clinical-history-sheet .patient-history-kind {
+    padding: 3px 7px;
+    font-size: .66rem;
+  }
+
+  .clinical-history-sheet .patient-history-detail-list div {
+    padding: 7px 8px;
+    border-radius: 10px;
+  }
+
+  .clinical-history-sheet .patient-history-detail-list dt {
+    font-size: .66rem;
+  }
+
+  .clinical-history-sheet .patient-history-detail-list dd {
+    font-size: .82rem;
+    line-height: 1.38;
+  }
+
+  .clinical-history-sheet .patient-history-form-block-head small,
+  .clinical-history-sheet .patient-history-toggle small {
+    display: none;
+  }
+
+  .clinical-history-sheet .patient-history-toggle {
+    padding: 9px;
+    border-radius: 13px;
+  }
+
+  .clinical-history-sheet .patient-history-quick textarea {
+    min-height: 94px;
+  }
+
+  .clinical-history-sheet .form-grid {
+    gap: 9px;
+  }
+
+  .clinical-history-sheet .field input,
+  .clinical-history-sheet .field select,
+  .clinical-history-sheet .field textarea,
+  .clinical-history-sheet .select-filter {
+    min-height: 40px;
+    padding: 9px 10px;
+    border-radius: 12px;
+  }
+
+  .clinical-history-sheet .patient-history-form-actions {
+    bottom: calc(6px + env(safe-area-inset-bottom));
+    margin: 0 -2px;
+    padding: 8px;
+    border-radius: 15px;
+  }
+}
+
+/* =========================================================
+   Historia clínica mobile: resumen colapsable, filtros y FAB
+   ========================================================= */
+.patient-history-summary-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.patient-history-summary-head > div {
+  min-width: 0;
+}
+
+.patient-history-summary-body {
+  display: grid;
+  gap: 10px;
+}
+
+.patient-summary-toggle {
+  display: none;
+  white-space: nowrap;
+}
+
+.patient-history-filter-tabs {
+  position: sticky;
+  top: 44px;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px;
+  margin: -2px -4px 4px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--bg) 8%);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .055);
+  scrollbar-width: thin;
+}
+
+.patient-history-filter-tabs button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 8px 11px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.patient-history-filter-tabs button span {
+  min-width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 950;
+}
+
+.patient-history-filter-tabs button.active {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--border));
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel));
+  box-shadow: 0 10px 22px rgba(15, 118, 110, .08);
+}
+
+.patient-history-filter-tabs button.active span {
+  background: var(--primary);
+  color: #fff;
+}
+
+.patient-history-kind-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.patient-history-kind-chips span {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  background: color-mix(in srgb, var(--primary) 7%, var(--panel));
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.patient-history-kind-attention { background: color-mix(in srgb, var(--primary) 12%, var(--panel)); color: var(--primary); }
+.patient-history-kind-prescription { background: color-mix(in srgb, var(--info) 12%, var(--panel)); color: var(--info); }
+.patient-history-kind-vaccine { background: color-mix(in srgb, var(--success) 12%, var(--panel)); color: var(--success); }
+.patient-history-kind-file { background: color-mix(in srgb, var(--warning) 14%, var(--panel)); color: var(--warning); }
+.patient-history-kind-appointment { background: color-mix(in srgb, var(--muted) 12%, var(--panel)); color: var(--text); }
+
+.patient-history-floating-action {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .clinical-history-sheet .patient-history-summary {
+    gap: 0;
+    padding: 9px 10px;
+  }
+
+  .clinical-history-sheet .patient-history-summary-head {
+    align-items: center;
+    gap: 8px;
+  }
+
+  .clinical-history-sheet .patient-history-summary h3 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .clinical-history-sheet .patient-history-summary-head p:not(.eyebrow) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .clinical-history-sheet .patient-summary-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 6px 9px;
+    font-size: .74rem;
+    border-radius: 11px;
+  }
+
+  .clinical-history-sheet .patient-history-summary.is-collapsed .patient-history-summary-body {
+    display: none;
+  }
+
+  .clinical-history-sheet .patient-history-summary.is-open {
+    gap: 8px;
+  }
+
+  .clinical-history-sheet .patient-history-summary.is-open .patient-history-summary-body {
+    display: grid;
+  }
+
+  .clinical-history-sheet .patient-history-main {
+    padding-bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+
+  .clinical-history-sheet .patient-history-filter-tabs {
+    top: 40px;
+    gap: 6px;
+    margin: -2px -2px 2px;
+    padding: 6px;
+    border-radius: 15px;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .055);
+    scrollbar-width: none;
+  }
+
+  .clinical-history-sheet .patient-history-filter-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .clinical-history-sheet .patient-history-filter-tabs button {
+    min-height: 32px;
+    padding: 6px 9px;
+    font-size: .76rem;
+  }
+
+  .clinical-history-sheet .patient-history-filter-tabs button span {
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    font-size: .66rem;
+  }
+
+  .clinical-history-sheet .patient-history-kind-chips {
+    gap: 5px;
+  }
+
+  .clinical-history-sheet .patient-history-kind-chips span {
+    min-height: 22px;
+    padding: 3px 7px;
+    font-size: .66rem;
+  }
+
+  .clinical-history-sheet .patient-history-floating-action {
+    position: fixed;
+    left: 14px;
+    right: 14px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    z-index: 1250;
+    display: inline-flex;
+    justify-content: center;
+    min-height: 50px;
+    border-radius: 18px;
+    box-shadow: 0 18px 38px rgba(15, 118, 110, .26);
+  }
+}
+
+/* =========================================================
+   Mobile operativo: quitar textos explicativos redundantes
+   ========================================================= */
+@media (max-width: 720px) {
+  .section-header p,
+  .sales-cash-module > section > .section-header p,
+  .ops-center-module > section > .section-header p,
+  .patient-history-section-head p {
+    display: none !important;
+  }
+
+  .section-header {
+    margin-bottom: 12px;
+  }
+>>>>>>> dc56ca7 (primer subida)
 }

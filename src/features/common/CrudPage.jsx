@@ -90,6 +90,10 @@ export function CrudPage({
   enableTags = false,
   tagScope,
   extraRowActions,
+<<<<<<< HEAD
+=======
+  mobile,
+>>>>>>> dc56ca7 (primer subida)
 }) {
   const modulePermissions = COLLECTION_PERMISSIONS[collectionName] || {}
   const effectiveReadPermission = readPermission ?? modulePermissions.read
@@ -318,6 +322,7 @@ export function CrudPage({
             rows={pageRows}
             columns={effectiveColumns}
             empty={emptyState}
+            mobile={mobile}
             actions={(row) => (
               <>
                 <IndividualExportActions

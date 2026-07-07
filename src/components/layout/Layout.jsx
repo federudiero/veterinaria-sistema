@@ -1,13 +1,19 @@
-import React, { useEffect, useMemo, useRef } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { navigation } from '../../data/navigation.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
 import { APP_VERSION } from '../../config/runtime.js'
 import { NotificationBell } from '../notifications/NotificationBell.jsx'
+<<<<<<< HEAD
 import { AppIcon } from '../icons/AppIcon.jsx'
 
 const QUICK_SALE_PATH = '/ventas-caja?tab=venta-rapida'
+=======
+
+const QUICK_SALE_PATH = '/ventas-caja?tab=venta-rapida'
+const MOBILE_PRIMARY_PATHS = ['/dashboard', '/clientes', '/pacientes', '/agenda', '/ventas-caja']
+>>>>>>> dc56ca7 (primer subida)
 const LEGACY_NAV_PATH_ALIASES = {
   '/turnos-caja': '/ventas-caja',
   '/cajas-del-dia': '/ventas-caja',
@@ -77,11 +83,20 @@ function sortNavigationByAdminOrder(items, navOrder = []) {
   })
 }
 
+function buildMobileNavigation(items) {
+  const byPath = new Map(items.map((item) => [item.path, item]))
+  const primary = MOBILE_PRIMARY_PATHS.map((path) => byPath.get(path)).filter(Boolean)
+  const primaryPaths = new Set(primary.map((item) => item.path))
+  const rest = items.filter((item) => !primaryPaths.has(item.path))
+  return { primary, rest }
+}
+
 export function Layout() {
   const { user, logout, hasPermission } = useAuth()
   const location = useLocation()
   const navRef = useRef(null)
   const mainRef = useRef(null)
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
   const settings = useCollection('settings', { limitCount: 20 })
   const appSettings = settings.items.find((item) => item.id === 'app') || {}
   const canUseQuickSale = hasPermission('ventas.read')
@@ -93,6 +108,7 @@ export function Layout() {
     const baseNavigation = navigation.filter((item) => canAccessNavigationItem(item))
     return sortNavigationByAdminOrder(baseNavigation, appSettings.navOrder)
   }, [appSettings.navOrder, hasPermission])
+  const mobileNavigation = useMemo(() => buildMobileNavigation(visibleNavigation), [visibleNavigation])
   const clinicName = appSettings.clinicName || 'Sistema Veterinaria'
   const logoText = String(appSettings.logoText || 'V+').slice(0, 4).toUpperCase()
 
@@ -103,6 +119,10 @@ export function Layout() {
     const activeLink = navRef.current?.querySelector('a.active')
     activeLink?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }, [location.pathname, visibleNavigation])
+
+  useEffect(() => {
+    setMobileMoreOpen(false)
+  }, [location.pathname])
 
   function focusMainContentOnMobile() {
     if (typeof window === 'undefined') return
@@ -116,6 +136,11 @@ export function Layout() {
       const targetTop = main.getBoundingClientRect().top + window.scrollY - sidebarHeight - 8
       window.scrollTo({ top: Math.max(targetTop, 0), behavior: 'smooth' })
     }, 80)
+  }
+
+  function handleMobileNavClick() {
+    setMobileMoreOpen(false)
+    focusMainContentOnMobile()
   }
 
   return (
@@ -168,6 +193,52 @@ export function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {mobileMoreOpen && (
+        <div className="mobile-nav-backdrop" role="presentation" onClick={() => setMobileMoreOpen(false)}>
+          <section className="mobile-more-sheet" aria-label="Más secciones" onClick={(event) => event.stopPropagation()}>
+            <div className="mobile-more-head">
+              <div>
+                <strong>Más secciones</strong>
+                <span>{clinicName}</span>
+              </div>
+              <button className="icon-btn" type="button" onClick={() => setMobileMoreOpen(false)} aria-label="Cerrar menú">×</button>
+            </div>
+            <div className="mobile-more-grid">
+              {mobileNavigation.rest.map((item) => (
+                <NavLink key={item.path} to={item.path} onClick={handleMobileNavClick}>
+                  <span>{item.icon}</span>
+                  <strong>{item.label}</strong>
+                </NavLink>
+              ))}
+              {canUseQuickSale && (
+                <NavLink to={QUICK_SALE_PATH} onClick={handleMobileNavClick}>
+                  <span>⚡</span>
+                  <strong>Venta rápida</strong>
+                </NavLink>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      <nav className="mobile-bottom-nav" aria-label="Navegación mobile rápida">
+        {mobileNavigation.primary.slice(0, 4).map((item) => (
+          <NavLink key={item.path} to={item.path} onClick={handleMobileNavClick}>
+            <span>{item.icon}</span>
+            <strong>{item.label}</strong>
+          </NavLink>
+        ))}
+        <button
+          type="button"
+          className={mobileMoreOpen ? 'active' : ''}
+          onClick={() => setMobileMoreOpen((value) => !value)}
+          aria-expanded={mobileMoreOpen}
+        >
+          <span>☰</span>
+          <strong>Más</strong>
+        </button>
+      </nav>
     </div>
   )
 }

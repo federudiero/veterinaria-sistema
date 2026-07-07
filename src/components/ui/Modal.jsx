@@ -8,6 +8,7 @@ export function Modal({
   onClose,
   size = 'lg',
   closeOnBackdrop = false,
+  className = '',
 }) {
   const titleId = useId()
   const dialogRef = useRef(null)
@@ -86,7 +87,7 @@ export function Modal({
       <div className="modal-backdrop" role="presentation" onMouseDown={handleBackdropMouseDown}>
         <section
           ref={dialogRef}
-          className={`modal modal-${size}`}
+          className={[`modal modal-${size}`, className].filter(Boolean).join(' ')}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}

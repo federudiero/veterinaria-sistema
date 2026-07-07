@@ -36,29 +36,57 @@ function formatMetaValue(value) {
   return value
 }
 
-function buildMobileLayout(columns) {
+function resolveColumn(columns, reference) {
+  if (!reference) return null
+  if (typeof reference === 'object' && reference.key) return reference
+  return columns.find((column) => column.key === reference || column.label === reference) || null
+}
+
+function resolveColumns(columns, references = []) {
+  return references
+    .map((reference) => resolveColumn(columns, reference))
+    .filter(Boolean)
+}
+
+function uniqueColumns(columns) {
+  const seen = new Set()
+  return columns.filter((column) => {
+    if (!column?.key || seen.has(column.key)) return false
+    seen.add(column.key)
+    return true
+  })
+}
+
+function buildMobileLayout(columns, mobile = {}) {
   if (!Array.isArray(columns) || columns.length === 0) {
     return { primaryColumn: null, secondaryColumn: null, metaColumns: [], detailColumns: [] }
   }
 
   const sorted = [...columns].sort((a, b) => labelScore(b) - labelScore(a))
-  const primaryColumn = sorted[0] || columns[0]
-  const secondaryColumn = sorted.find((column) => column.key !== primaryColumn.key) || null
+  const primaryColumn = resolveColumn(columns, mobile.title || mobile.primary || mobile.primaryKey) || sorted[0] || columns[0]
+  const secondaryColumn = resolveColumn(columns, mobile.subtitle || mobile.secondary || mobile.secondaryKey)
+    || sorted.find((column) => column.key !== primaryColumn.key)
+    || null
   const summaryKeys = new Set([primaryColumn?.key, secondaryColumn?.key].filter(Boolean))
-  const metaColumns = columns
-    .filter((column) => !summaryKeys.has(column.key) && !isLongDetailColumn(column))
-    .slice(0, 3)
+  const configuredMetaColumns = resolveColumns(columns, mobile.meta || mobile.metaKeys || [])
+  const metaColumns = uniqueColumns(
+    configuredMetaColumns.length
+      ? configuredMetaColumns.filter((column) => !summaryKeys.has(column.key))
+      : columns.filter((column) => !summaryKeys.has(column.key) && !isLongDetailColumn(column)).slice(0, 3),
+  ).slice(0, mobile.maxMeta || 4)
+  const detailColumns = resolveColumns(columns, mobile.details || mobile.detailKeys || [])
+
   return {
     primaryColumn,
     secondaryColumn,
     metaColumns,
-    detailColumns: columns,
+    detailColumns: detailColumns.length ? uniqueColumns(detailColumns) : columns,
   }
 }
 
-export function DataTable({ columns, rows, empty = 'No hay registros.', actions }) {
+export function DataTable({ columns, rows, empty = 'No hay registros.', actions, mobile }) {
   const [expandedRows, setExpandedRows] = useState(() => new Set())
-  const mobileLayout = useMemo(() => buildMobileLayout(columns), [columns])
+  const mobileLayout = useMemo(() => buildMobileLayout(columns, mobile), [columns, mobile])
 
   function toggleExpanded(rowId) {
     setExpandedRows((current) => {
@@ -98,7 +126,7 @@ export function DataTable({ columns, rows, empty = 'No hay registros.', actions 
         </table>
       </div>
 
-      <div className="mobile-data-list" aria-label="Listado compacto">
+      <div className="mobile-data-list" aria-label={mobile?.ariaLabel || 'Listado compacto'}>
         {rows.length === 0 ? (
           <div className="mobile-empty-state">{empty}</div>
         ) : rows.map((row) => {

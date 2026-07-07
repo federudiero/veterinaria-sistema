@@ -1,15 +1,21 @@
 {
   "name": "Sistema Veterinaria",
   "short_name": "Veterinaria",
+  "description": "Gestión veterinaria profesional para consultorio, pacientes, agenda, ventas y caja.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
+  "lang": "es-AR",
   "background_color": "#f7faf9",
   "theme_color": "#0f766e",
+  "categories": ["business", "medical", "productivity"],
   "icons": [
     {
       "src": "/icon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ]
 }

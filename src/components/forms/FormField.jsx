@@ -54,6 +54,10 @@ export function FormField({ field, value, form = {}, onChange }) {
     max: field.max,
     step: field.step,
     inputMode: field.inputMode,
+    autoComplete: field.autoComplete,
+    autoCapitalize: field.autoCapitalize,
+    enterKeyHint: field.enterKeyHint,
+    pattern: field.pattern,
     onChange: (event) => {
       const nextValue = field.type === 'checkbox' ? event.target.checked : event.target.value
       onChange(field.name, nextValue, field)

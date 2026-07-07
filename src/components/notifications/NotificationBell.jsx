@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom'
 import { useCollection } from '../../hooks/useCollection.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { dateLabel } from '../../utils/formatters.js'
+<<<<<<< HEAD
 import { AppIcon } from '../icons/AppIcon.jsx'
+=======
+>>>>>>> dc56ca7 (primer subida)
 
 function notificationDate(value) {
   if (!value) return ''
@@ -48,7 +51,11 @@ function NotificationBellContent({ canWrite }) {
         onClick={() => setOpen((value) => !value)}
         aria-label="Abrir notificaciones"
       >
+<<<<<<< HEAD
         <AppIcon name="bell" size={18} />
+=======
+        <span>🔔</span>
+>>>>>>> dc56ca7 (primer subida)
         {unreadRows.length > 0 && <strong>{unreadRows.length > 99 ? '99+' : unreadRows.length}</strong>}
       </button>
 
