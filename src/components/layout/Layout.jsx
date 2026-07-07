@@ -5,15 +5,10 @@ import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useCollection } from '../../hooks/useCollection.js'
 import { APP_VERSION } from '../../config/runtime.js'
 import { NotificationBell } from '../notifications/NotificationBell.jsx'
-<<<<<<< HEAD
 import { AppIcon } from '../icons/AppIcon.jsx'
 
 const QUICK_SALE_PATH = '/ventas-caja?tab=venta-rapida'
-=======
-
-const QUICK_SALE_PATH = '/ventas-caja?tab=venta-rapida'
 const MOBILE_PRIMARY_PATHS = ['/dashboard', '/clientes', '/pacientes', '/agenda', '/ventas-caja']
->>>>>>> dc56ca7 (primer subida)
 const LEGACY_NAV_PATH_ALIASES = {
   '/turnos-caja': '/ventas-caja',
   '/cajas-del-dia': '/ventas-caja',

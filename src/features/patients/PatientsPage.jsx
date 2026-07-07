@@ -11,8 +11,6 @@ function CastrationBadge({ value }) {
   const tone = label === 'Castrado' ? 'success' : label === 'No castrado' ? 'warning' : 'info'
   return <span className={`badge tone-${tone}`}>{label}</span>
 }
-<<<<<<< HEAD
-=======
 
 function normalizePhone(value) {
   const digits = String(value || '').replace(/\D/g, '')
@@ -28,7 +26,6 @@ function openWhatsApp(phone, message = '') {
   const text = message ? `?text=${encodeURIComponent(message)}` : ''
   window.open(normalized ? `https://wa.me/${normalized}${text}` : `https://wa.me/${text}`, '_blank', 'noopener,noreferrer')
 }
->>>>>>> dc56ca7 (primer subida)
 
 export function PatientsPage() {
   const { clientOptions, clientMap, clientById } = useLookups()
@@ -64,11 +61,7 @@ export function PatientsPage() {
         collectionName="patients"
         eyebrow="Clínica"
         title="Pacientes"
-<<<<<<< HEAD
-        description="Ficha principal de cada mascota. La historia clínica vive dentro del botón Historia de cada paciente: desde ese modal se cargan atenciones, diagnósticos, indicaciones, recetas, vacunas y PDF/WhatsApp."
-=======
         description="Ficha principal de cada mascota. En mobile la card prioriza tutor, especie, estado y acceso directo a historia clínica para trabajar en consultorio."
->>>>>>> dc56ca7 (primer subida)
         createLabel="Nuevo paciente"
         searchFields={['name', 'clientName', 'clientPhone', 'clientEmail', 'species', 'breed', 'chip', 'allergies', 'alerts', 'status', 'castrationStatus']}
         searchPlaceholder="Buscar paciente por nombre, responsable, teléfono, especie, raza, chip, castración o alerta..."
@@ -76,29 +69,6 @@ export function PatientsPage() {
         exportColumns={patientContactExportColumns({ clientById, baseColumns: columns })}
         initialValues={{ clientId: '', name: '', species: 'Canino', breed: '', sex: '', birthDate: '', weight: 0, color: '', castrationStatus: 'Indefinido', chip: '', allergies: '', alerts: '', status: 'Activo' }}
         fields={[
-<<<<<<< HEAD
-          { name: 'clientId', label: 'Cliente responsable', type: 'select', required: true, options: clientOptions },
-          { name: 'name', label: 'Nombre del paciente', required: true },
-          { name: 'species', label: 'Especie', type: 'select', options: ['Canino', 'Felino', 'Ave', 'Exótico', 'Otro'] },
-          { name: 'breed', label: 'Raza' },
-          { name: 'sex', label: 'Sexo', type: 'select', options: ['Macho', 'Hembra', 'No informado'] },
-          { name: 'birthDate', label: 'Fecha nacimiento', type: 'date' },
-          { name: 'weight', label: 'Peso kg', type: 'number' },
-          { name: 'color', label: 'Color' },
-          { name: 'castrationStatus', label: 'Castración', type: 'select', options: ['Castrado', 'No castrado', 'Indefinido'] },
-          { name: 'chip', label: 'Microchip' },
-          { name: 'allergies', label: 'Alergias' },
-          { name: 'status', label: 'Estado', type: 'select', options: ['Activo', 'Inactivo', 'Fallecido'] },
-          { name: 'alerts', label: 'Alertas clínicas', type: 'textarea' },
-        ]}
-        enableTags
-        columns={columns}
-        extraRowActions={(row) => (
-          <button className="btn btn-small btn-primary-soft" type="button" onClick={() => setHistoryPatient(row)}>
-            Historia
-          </button>
-        )}
-=======
           { name: 'clientId', label: 'Cliente responsable', type: 'select', required: true, options: clientOptions, searchPlaceholder: 'Buscar responsable por nombre o teléfono...' },
           { name: 'name', label: 'Nombre del paciente', required: true, autoComplete: 'off', enterKeyHint: 'next' },
           { name: 'species', label: 'Especie', type: 'select', options: ['Canino', 'Felino', 'Ave', 'Exótico', 'Otro'] },
@@ -135,7 +105,6 @@ export function PatientsPage() {
             </>
           )
         }}
->>>>>>> dc56ca7 (primer subida)
       />
 
       {historyPatient && (

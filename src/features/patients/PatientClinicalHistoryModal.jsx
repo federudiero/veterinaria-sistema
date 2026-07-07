@@ -17,8 +17,6 @@ const vaccineSearchFields = ['date', 'nextDueDate', 'patientName', 'clientName',
 const prescriptionSearchFields = ['date', 'patientName', 'clientName', 'clientPhone', 'professional', 'diagnosis', 'medication', 'instructions', 'status', 'notes']
 const clinicalFileSearchFields = ['date', 'patientName', 'clientName', 'clientPhone', 'title', 'documentType', 'notes', 'fileName', 'visibleInPortal', 'uploadStatus']
 
-<<<<<<< HEAD
-=======
 const TIMELINE_FILTERS = [
   { key: 'all', label: 'Todos' },
   { key: 'attention', label: 'Atenciones' },
@@ -67,7 +65,6 @@ function countTimelineByFilter(timeline = [], filterKey = 'all') {
   return timeline.filter((item) => item.categoryTags?.includes(filterKey)).length
 }
 
->>>>>>> dc56ca7 (primer subida)
 const STAFF_ROLES = new Set(['admin', 'veterinario', 'recepcion', 'caja', 'stock', 'solo_lectura'])
 const ROLE_LABELS = {
   admin: 'Administrador',
@@ -112,17 +109,10 @@ function buildTimeline({ clinicalRecords = [], vaccines = [], prescriptions = []
   )
 
   return [
-<<<<<<< HEAD
-    ...clinicalRecords.map((item) => ({
-      id: `clinical-${item.id}`,
-      record: item,
-      kind: item.type || 'Atención',
-=======
     ...clinicalRecords.map((item) => withTimelineCategories({
       id: `clinical-${item.id}`,
       record: item,
       kind: normalizeClinicalKind(item.type),
->>>>>>> dc56ca7 (primer subida)
       date: item.date,
       title: item.reason || item.title || item.type || 'Visita clínica',
       meta: item.professional ? `Atendió: ${item.professional}` : 'Profesional no informado',
@@ -132,21 +122,12 @@ function buildTimeline({ clinicalRecords = [], vaccines = [], prescriptions = []
         item.indications ? { label: item.source === 'vaccines' ? 'Datos de prevención' : item.source === 'prescriptions' ? 'Indicaciones para tutor' : 'Plan clínico / indicaciones', value: item.indications } : null,
         item.notes ? { label: item.source === 'vaccines' ? 'Observaciones' : 'Notas / evolución', value: item.notes } : null,
       ].filter(Boolean),
-<<<<<<< HEAD
-    })),
-    ...vaccines
-      .filter((item) => !item.clinicalRecordId && !clinicalSourceKeys.has(`vaccines:${item.id}`))
-      .map((item) => ({
-        id: `vaccine-${item.id}`,
-        kind: 'Prevención',
-=======
     }, buildClinicalCategories(item))),
     ...vaccines
       .filter((item) => !item.clinicalRecordId && !clinicalSourceKeys.has(`vaccines:${item.id}`))
       .map((item) => withTimelineCategories({
         id: `vaccine-${item.id}`,
         kind: 'Vacuna',
->>>>>>> dc56ca7 (primer subida)
         date: item.date,
         title: item.vaccine || 'Aplicación sanitaria',
         meta: [item.professional ? `Aplicó: ${item.professional}` : '', item.batch ? `Lote: ${item.batch}` : ''].filter(Boolean).join(' · '),
@@ -154,17 +135,10 @@ function buildTimeline({ clinicalRecords = [], vaccines = [], prescriptions = []
           item.nextDueDate ? { label: 'Próximo refuerzo', value: dateLabel(item.nextDueDate) } : null,
           item.notes ? { label: 'Notas', value: item.notes } : null,
         ].filter(Boolean),
-<<<<<<< HEAD
-      })),
-    ...prescriptions
-      .filter((item) => !item.clinicalRecordId && !clinicalSourceKeys.has(`prescriptions:${item.id}`))
-      .map((item) => ({
-=======
       }, ['vaccine'])),
     ...prescriptions
       .filter((item) => !item.clinicalRecordId && !clinicalSourceKeys.has(`prescriptions:${item.id}`))
       .map((item) => withTimelineCategories({
->>>>>>> dc56ca7 (primer subida)
         id: `prescription-${item.id}`,
         kind: 'Receta',
         date: item.date,
@@ -176,30 +150,18 @@ function buildTimeline({ clinicalRecords = [], vaccines = [], prescriptions = []
           item.instructions ? { label: 'Indicaciones', value: item.instructions } : null,
           item.notes ? { label: 'Notas', value: item.notes } : null,
         ].filter(Boolean),
-<<<<<<< HEAD
-      })),
-    ...appointments.map((item) => ({
-=======
       }, ['prescription'])),
     ...appointments.map((item) => withTimelineCategories({
->>>>>>> dc56ca7 (primer subida)
       id: `appointment-${item.id}`,
       kind: 'Turno',
       date: item.date,
       title: item.reason || item.type || item.service || 'Turno agendado',
       meta: [item.time, item.status].filter(Boolean).join(' · '),
       details: item.notes ? [{ label: 'Notas', value: item.notes }] : [],
-<<<<<<< HEAD
-    })),
-    ...clinicalFiles.map((item) => ({
-      id: `file-${item.id}`,
-      kind: 'Documento PDF',
-=======
     }, ['appointment'])),
     ...clinicalFiles.map((item) => withTimelineCategories({
       id: `file-${item.id}`,
       kind: 'PDF',
->>>>>>> dc56ca7 (primer subida)
       date: item.date,
       title: item.title || item.fileName || 'Documento clínico',
       meta: [item.documentType, item.visibleInPortal ? 'Visible para tutor' : 'Solo interno'].filter(Boolean).join(' · '),
@@ -208,11 +170,7 @@ function buildTimeline({ clinicalRecords = [], vaccines = [], prescriptions = []
         item.fileName ? { label: 'Archivo', value: item.fileName } : null,
       ].filter(Boolean),
       file: item,
-<<<<<<< HEAD
-    })),
-=======
     }, ['file'])),
->>>>>>> dc56ca7 (primer subida)
   ].sort(byDateDesc)
 }
 
@@ -311,19 +269,12 @@ function InfoTile({ label, value }) {
 }
 
 function HistoryTimelineItem({ item, onOpenFile, openingFileId, onEdit, canEdit }) {
-<<<<<<< HEAD
-  return (
-    <article className="patient-history-item">
-      <div className="patient-history-item-head">
-        <span className="patient-history-kind">{item.kind}</span>
-=======
   const primaryCategory = item.categoryTags?.[0] || 'attention'
 
   return (
     <article className={`patient-history-item patient-history-item-${primaryCategory}`}>
       <div className="patient-history-item-head">
         <span className={`patient-history-kind patient-history-kind-${primaryCategory}`}>{item.kind}</span>
->>>>>>> dc56ca7 (primer subida)
         <div className="patient-history-item-head-actions">
           <small>{dateLabel(item.date) || 'Sin fecha'}</small>
           {canEdit && item.record && (
@@ -331,8 +282,6 @@ function HistoryTimelineItem({ item, onOpenFile, openingFileId, onEdit, canEdit 
           )}
         </div>
       </div>
-<<<<<<< HEAD
-=======
       {!!item.categoryLabels?.length && (
         <div className="patient-history-kind-chips" aria-label="Tipos de evento">
           {item.categoryLabels.map((label, index) => (
@@ -340,7 +289,6 @@ function HistoryTimelineItem({ item, onOpenFile, openingFileId, onEdit, canEdit 
           ))}
         </div>
       )}
->>>>>>> dc56ca7 (primer subida)
       <strong>{item.title}</strong>
       {item.meta && <em>{item.meta}</em>}
       {!!item.details?.length && (
@@ -412,12 +360,9 @@ export function PatientClinicalHistoryModal({ patient, onClose }) {
   const [openingFileId, setOpeningFileId] = useState('')
   const [form, setForm] = useState(initialUnifiedForm)
   const [editingRecord, setEditingRecord] = useState(null)
-<<<<<<< HEAD
-=======
   const [activePanel, setActivePanel] = useState('timeline')
   const [timelineFilter, setTimelineFilter] = useState('all')
   const [summaryExpanded, setSummaryExpanded] = useState(false)
->>>>>>> dc56ca7 (primer subida)
 
   const loading = clinicalRecords.loading || vaccines.loading || prescriptions.loading || appointments.loading || clinicalFiles.loading
   const error = clinicalRecords.error || vaccines.error || prescriptions.error || appointments.error || clinicalFiles.error
@@ -431,13 +376,10 @@ export function PatientClinicalHistoryModal({ patient, onClose }) {
     appointments: appointments.items,
     clinicalFiles: clinicalFiles.items,
   }), [clinicalRecords.items, vaccines.items, prescriptions.items, appointments.items, clinicalFiles.items])
-<<<<<<< HEAD
-=======
   const filteredTimeline = useMemo(() => {
     if (timelineFilter === 'all') return timeline
     return timeline.filter((item) => item.categoryTags?.includes(timelineFilter))
   }, [timeline, timelineFilter])
->>>>>>> dc56ca7 (primer subida)
 
   function findLinkedPrescription(record) {
     if (!record?.id) return null
@@ -466,14 +408,11 @@ export function PatientClinicalHistoryModal({ patient, onClose }) {
     setEditingRecord(null)
   }
 
-<<<<<<< HEAD
-=======
   function startNewAttention() {
     resetClinicalForm()
     setActivePanel('form')
   }
 
->>>>>>> dc56ca7 (primer subida)
   function handleEditClinicalRecord(record) {
     const linkedPrescription = findLinkedPrescription(record)
     const linkedVaccine = findLinkedVaccine(record)
@@ -506,10 +445,7 @@ export function PatientClinicalHistoryModal({ patient, onClose }) {
     })
     setSelectedPdf(null)
     setEditingRecord(record)
-<<<<<<< HEAD
-=======
     setActivePanel('form')
->>>>>>> dc56ca7 (primer subida)
   }
 
   const baseFields = useMemo(() => [
@@ -731,10 +667,7 @@ export function PatientClinicalHistoryModal({ patient, onClose }) {
     }
 
     resetClinicalForm()
-<<<<<<< HEAD
-=======
     setActivePanel('timeline')
->>>>>>> dc56ca7 (primer subida)
     feedback.success(editingRecord?.id ? 'Historia clínica actualizada.' : 'Atención guardada en la historia clínica del paciente.')
   }
 
@@ -794,10 +727,7 @@ export function PatientClinicalHistoryModal({ patient, onClose }) {
     <Modal
       title={`Historia clínica · ${patient?.name || 'Paciente'}`}
       size="xl"
-<<<<<<< HEAD
-=======
       className="clinical-history-sheet"
->>>>>>> dc56ca7 (primer subida)
       onClose={onClose}
       footer={(
         <>
@@ -808,31 +738,6 @@ export function PatientClinicalHistoryModal({ patient, onClose }) {
       )}
     >
       <div className="patient-history-modal">
-<<<<<<< HEAD
-        <section className="patient-history-summary">
-          <div>
-            <p className="eyebrow">Portal clínico propio del animal</p>
-            <h3>{patient?.name}</h3>
-            <p>{[patient?.species, patient?.breed, patient?.sex].filter(Boolean).join(' · ') || 'Sin datos principales'}</p>
-          </div>
-          <div className="patient-history-meta">
-            <InfoTile label="Responsable" value={client?.name || patient?.clientName} />
-            <InfoTile label="Nacimiento" value={dateLabel(patient?.birthDate)} />
-            <InfoTile label="Peso" value={patient?.weight ? `${patient.weight} kg` : ''} />
-            <InfoTile label="Color" value={patient?.color} />
-            <InfoTile label="Castración" value={patient?.castrationStatus || 'Indefinido'} />
-            <InfoTile label="Microchip" value={patient?.chip} />
-          </div>
-          {(patient?.allergies || patient?.alerts) && (
-            <div className="patient-history-alerts">
-              {patient?.allergies && <span><strong>Alergias:</strong> {patient.allergies}</span>}
-              {patient?.alerts && <span><strong>Alertas clínicas:</strong> {patient.alerts}</span>}
-            </div>
-          )}
-        </section>
-
-        {canWriteClinical && (
-=======
         <div className="patient-clinical-actions" aria-label="Acciones rápidas de historia clínica">
           {canWriteClinical && (
             <button
@@ -893,7 +798,6 @@ export function PatientClinicalHistoryModal({ patient, onClose }) {
         </section>
 
         {canWriteClinical && activePanel === 'form' && (
->>>>>>> dc56ca7 (primer subida)
           <section className="patient-history-quick panel-soft">
             <div className="patient-history-section-head">
               <div>
@@ -983,30 +887,6 @@ export function PatientClinicalHistoryModal({ patient, onClose }) {
           </section>
         )}
 
-<<<<<<< HEAD
-        <section className="patient-history-main panel-soft">
-          <div className="patient-history-section-head">
-            <div>
-              <h4>Historia unificada del paciente</h4>
-              <p>Atenciones, diagnósticos, indicaciones, recetas, prevención sanitaria, turnos y documentos PDF vinculados al animal.</p>
-            </div>
-            <span>{timeline.length} eventos</span>
-          </div>
-          {error && <div className="alert alert-danger">{error}</div>}
-          {loading && <div className="portal-empty-state">Cargando historia clínica...</div>}
-          {!loading && !timeline.length && <div className="portal-empty-state"><strong>Sin eventos cargados</strong><span>Este animal todavía no tiene atenciones, vacunas, recetas, turnos ni documentos vinculados.</span></div>}
-          {!loading && timeline.map((item) => (
-            <HistoryTimelineItem
-              key={item.id}
-              item={item}
-              onOpenFile={handleOpenClinicalFile}
-              openingFileId={openingFileId}
-              onEdit={handleEditClinicalRecord}
-              canEdit={canWriteClinical}
-            />
-          ))}
-        </section>
-=======
         {activePanel === 'timeline' && (
           <section className="patient-history-main panel-soft">
             <div className="patient-history-section-head">
@@ -1064,7 +944,6 @@ export function PatientClinicalHistoryModal({ patient, onClose }) {
             + Nueva atención
           </button>
         )}
->>>>>>> dc56ca7 (primer subida)
       </div>
     </Modal>
   )
