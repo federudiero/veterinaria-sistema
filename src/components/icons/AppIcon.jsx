@@ -118,6 +118,56 @@ const ICONS = {
       <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.05.05a2.1 2.1 0 1 1-2.98 2.98l-.05-.05A1.8 1.8 0 0 0 14.8 19.6a1.8 1.8 0 0 0-1 .56V20a2.1 2.1 0 1 1-4.2 0v-.08a1.8 1.8 0 0 0-1-.56 1.8 1.8 0 0 0-1.98.36l-.05.05a2.1 2.1 0 1 1-2.98-2.98l.05-.05A1.8 1.8 0 0 0 4.4 15a1.8 1.8 0 0 0-.56-1H3.8a2.1 2.1 0 1 1 0-4.2h.08a1.8 1.8 0 0 0 .56-1 1.8 1.8 0 0 0-.36-1.98l-.05-.05a2.1 2.1 0 1 1 2.98-2.98l.05.05A1.8 1.8 0 0 0 9.2 4.4a1.8 1.8 0 0 0 1-.56V3.8a2.1 2.1 0 1 1 4.2 0v.08a1.8 1.8 0 0 0 1 .56 1.8 1.8 0 0 0 1.98-.36l.05-.05a2.1 2.1 0 1 1 2.98 2.98l-.05.05A1.8 1.8 0 0 0 19.6 9.2c.23.34.42.67.56 1h.04a2.1 2.1 0 1 1 0 4.2h-.08a1.8 1.8 0 0 0-.72.6Z" />
     </Svg>
   ),
+
+  quickSale: (props) => (
+    <Svg {...props}>
+      <path d="M4 7h16" />
+      <path d="M6 7v12h12V7" />
+      <path d="M8 11h3" />
+      <path d="M8 15h8" />
+      <path d="M15 11h1" />
+      <path d="M9 3h6l1 4H8l1-4Z" />
+    </Svg>
+  ),
+  salesList: (props) => (
+    <Svg {...props}>
+      <path d="M8 6h13" />
+      <path d="M8 12h13" />
+      <path d="M8 18h13" />
+      <path d="M3 6h.01" />
+      <path d="M3 12h.01" />
+      <path d="M3 18h.01" />
+      <path d="M15 3v18" />
+    </Svg>
+  ),
+  cashDrawer: (props) => (
+    <Svg {...props}>
+      <rect x="4" y="4" width="16" height="6" rx="2" />
+      <path d="M6 10h12l1 10H5l1-10Z" />
+      <path d="M9 15h6" />
+      <path d="M9 7h2" />
+      <path d="M15 7h.01" />
+    </Svg>
+  ),
+  accounts: (props) => (
+    <Svg {...props}>
+      <path d="M5 7h14" />
+      <path d="M5 12h14" />
+      <path d="M5 17h10" />
+      <path d="M4 4h16v16H4z" />
+      <path d="M16.5 15.5 19 18l3-4" />
+    </Svg>
+  ),
+  shifts: (props) => (
+    <Svg {...props}>
+      <rect x="4" y="5" width="16" height="15" rx="3" />
+      <path d="M8 3v4" />
+      <path d="M16 3v4" />
+      <path d="M4 10h16" />
+      <path d="M8 14h3" />
+      <path d="M8 17h8" />
+    </Svg>
+  ),
   bolt: (props) => (
     <Svg {...props}>
       <path d="M13 2 4 14h7l-1 8 10-13h-7l0-7Z" />

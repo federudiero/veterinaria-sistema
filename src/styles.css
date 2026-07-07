@@ -5001,3 +5001,90 @@ code {
 .mobile-bottom-nav button.active .mobile-bottom-icon-frame {
   color: var(--primary);
 }
+
+/* =========================================================
+   Ajuste UX ventas: pestañas compactas con iconos consistentes
+   ========================================================= */
+.module-tabs.sales-cash-tabs {
+  grid-template-columns: repeat(5, minmax(128px, 1fr));
+  gap: 8px;
+}
+
+.sales-cash-tabs .module-tab {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 18px;
+}
+
+.module-tab-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 13px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 9%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--primary) 17%, var(--border));
+  flex: 0 0 auto;
+}
+
+.module-tab-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.sales-cash-tabs .module-tab strong {
+  font-size: .9rem;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sales-cash-tabs .module-tab small {
+  display: none;
+}
+
+.sales-cash-tabs .module-tab.active .module-tab-icon {
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+@media (max-width: 1180px) {
+  .module-tabs.sales-cash-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .module-tabs.sales-cash-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .sales-cash-tabs .module-tab {
+    min-width: 148px;
+    min-height: 54px;
+    padding: 8px 10px;
+    border-radius: 16px;
+    scroll-snap-align: start;
+  }
+
+  .module-tab-icon {
+    width: 31px;
+    height: 31px;
+    border-radius: 12px;
+  }
+
+  .sales-cash-tabs .module-tab strong {
+    font-size: .82rem;
+  }
+}

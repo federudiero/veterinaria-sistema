@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { AppIcon } from '../../components/icons/AppIcon.jsx'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { QuickSalePage } from '../sales/QuickSalePage.jsx'
@@ -11,6 +12,7 @@ import { ShiftsPage } from '../shifts/ShiftsPage.jsx'
 const SALES_CASH_TABS = [
   {
     id: 'venta-rapida',
+    icon: 'quickSale',
     label: 'Venta rápida',
     description: 'Mostrador, cobro, stock y cuenta corriente desde una carga corta.',
     permission: 'ventas.read',
@@ -18,6 +20,7 @@ const SALES_CASH_TABS = [
   },
   {
     id: 'ventas',
+    icon: 'salesList',
     label: 'Ventas del día',
     description: 'Listado, filtros, comprobantes, anulación y exportación de ventas.',
     permission: 'ventas.read',
@@ -25,6 +28,7 @@ const SALES_CASH_TABS = [
   },
   {
     id: 'caja',
+    icon: 'cashDrawer',
     label: 'Caja diaria',
     description: 'Ingresos, egresos, apertura y cierre de la caja compartida del día.',
     permission: 'caja.read',
@@ -32,6 +36,7 @@ const SALES_CASH_TABS = [
   },
   {
     id: 'cuentas-corrientes',
+    icon: 'accounts',
     label: 'Cuentas corrientes',
     description: 'Deudas, pagos parciales, cancelaciones y cobros pendientes.',
     permission: 'caja.read',
@@ -39,6 +44,7 @@ const SALES_CASH_TABS = [
   },
   {
     id: 'cajas-del-dia',
+    icon: 'shifts',
     label: 'Cajas del día',
     description: 'Aperturas, estado e historial de cajas diarias.',
     permission: 'caja.read',
@@ -93,8 +99,11 @@ export function SalesCashPage() {
                 role="tab"
                 aria-selected={activeTab?.id === tab.id}
               >
-                <strong>{tab.label}</strong>
-                <small>{tab.description}</small>
+                <span className="module-tab-icon"><AppIcon name={tab.icon} size={20} /></span>
+                <span className="module-tab-copy">
+                  <strong>{tab.label}</strong>
+                  <small>{tab.description}</small>
+                </span>
               </button>
             ))}
           </div>
