@@ -280,6 +280,21 @@ service cloud.firestore {
         allow write: if hasPermission(tenantId, 'agenda.write');
       }
 
+      match /groomingAvailability/{docId} {
+        allow read: if hasPermission(tenantId, 'agenda.read');
+        allow write: if hasPermission(tenantId, 'agenda.write');
+      }
+
+      match /groomingAppointments/{docId} {
+        allow read: if hasPermission(tenantId, 'agenda.read');
+        allow write: if hasPermission(tenantId, 'agenda.write');
+      }
+
+      match /groomingSettings/{docId} {
+        allow read: if hasPermission(tenantId, 'agenda.read');
+        allow write: if hasPermission(tenantId, 'agenda.write');
+      }
+
       match /waitingQueue/{docId} {
         allow read: if hasPermission(tenantId, 'agenda.read');
         allow write: if hasPermission(tenantId, 'agenda.write');

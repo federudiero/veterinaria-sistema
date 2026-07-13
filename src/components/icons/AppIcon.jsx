@@ -66,6 +66,15 @@ const ICONS = {
       <path d="M12 18h.01" />
     </Svg>
   ),
+  grooming: (props) => (
+    <Svg {...props}>
+      <circle cx="6" cy="7" r="3" />
+      <circle cx="6" cy="17" r="3" />
+      <path d="m8.5 8.5 11 8.5" />
+      <path d="m8.5 15.5 11-8.5" />
+      <path d="M14 12h6" />
+    </Svg>
+  ),
   salesCash: (props) => (
     <Svg {...props}>
       <rect x="3" y="6" width="18" height="12" rx="3" />

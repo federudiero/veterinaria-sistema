@@ -1,4 +1,5 @@
-const TOKEN_MIN = 2
+export const SEARCH_TERM_MIN_LENGTH = 2
+const TOKEN_MIN = SEARCH_TERM_MIN_LENGTH
 const TOKEN_MAX = 24
 const MAX_TOKENS = 180
 
@@ -12,18 +13,27 @@ export function normalizeSearchText(value) {
     .trim()
 }
 
+export function isSearchTermTooShort(value) {
+  const normalized = normalizeSearchText(value)
+  return Boolean(normalized && normalized.length < SEARCH_TERM_MIN_LENGTH)
+}
+
+export function effectiveSearchTerm(value) {
+  return isSearchTermTooShort(value) ? '' : normalizeSearchText(value)
+}
+
 export function onlyDigits(value) {
   return String(value ?? '').replace(/\D+/g, '')
 }
 
 export function primarySearchToken(value) {
   const normalized = normalizeSearchText(value)
-  if (!normalized) return ''
+  if (!normalized || normalized.length < TOKEN_MIN) return ''
   const tokens = normalized
     .split(' ')
     .map((token) => token.trim())
     .filter((token) => token.length >= TOKEN_MIN)
-  if (!tokens.length) return normalized.slice(0, TOKEN_MAX)
+  if (!tokens.length) return ''
   return [...tokens].sort((a, b) => b.length - a.length)[0].slice(0, TOKEN_MAX)
 }
 
@@ -36,10 +46,9 @@ function addPrefixes(target, rawToken) {
   }
 }
 
-
 export function searchTextContainsTerms(searchText, term, tokens = []) {
   const normalizedTerm = normalizeSearchText(term)
-  if (!normalizedTerm) return true
+  if (!normalizedTerm || normalizedTerm.length < TOKEN_MIN) return true
   const normalizedSearchText = normalizeSearchText(searchText)
   if (normalizedSearchText.includes(normalizedTerm)) return true
   const parts = normalizedTerm.split(' ').filter((item) => item.length >= TOKEN_MIN)
@@ -89,7 +98,7 @@ export function buildSearchPayload(payload = {}, preferredFields = []) {
 
 export function matchesSearch(payload, term, fields = []) {
   const normalizedTerm = normalizeSearchText(term)
-  if (!normalizedTerm) return true
+  if (!normalizedTerm || normalizedTerm.length < TOKEN_MIN) return true
 
   const tokens = Array.isArray(payload?.searchTokens) ? payload.searchTokens : []
   if (tokens.includes(normalizedTerm)) return true

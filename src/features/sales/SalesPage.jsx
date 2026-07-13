@@ -84,7 +84,7 @@ export function SalesPage() {
     orderByField: 'date',
     orderDirection: 'asc',
   })
-  const products = useCollection('products', { limitCount: 300, orderByField: 'name', orderDirection: 'asc' })
+  const products = useCollection('products', { limitCount: 1000, orderByField: 'name', orderDirection: 'asc' })
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
   const tagsCollection = useCollection('tags', { limitCount: 250, orderByField: 'name', orderDirection: 'asc' })
   const { clientOptions, patientOptionsForClient, clientMap, patientMap, productOptions, productMap, clientById, patientById } = useLookups()

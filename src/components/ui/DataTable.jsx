@@ -84,7 +84,7 @@ function buildMobileLayout(columns, mobile = {}) {
   }
 }
 
-export function DataTable({ columns, rows, empty = 'No hay registros.', actions, mobile }) {
+export function DataTable({ columns, rows, empty = 'No hay registros.', actions, mobile, highlightedRowId = '' }) {
   const [expandedRows, setExpandedRows] = useState(() => new Set())
   const mobileLayout = useMemo(() => buildMobileLayout(columns, mobile), [columns, mobile])
 
@@ -113,7 +113,7 @@ export function DataTable({ columns, rows, empty = 'No hay registros.', actions,
                 <td colSpan={columns.length + (actions ? 1 : 0)} className="empty-cell">{empty}</td>
               </tr>
             ) : rows.map((row) => (
-              <tr key={row.id}>
+              <tr key={row.id} className={String(row.id) === String(highlightedRowId) ? 'is-highlighted-row' : ''}>
                 {columns.map((column) => (
                   <td key={column.key} data-label={column.label}>
                     <span className="cell-content">{getColumnValue(row, column)}</span>
@@ -134,7 +134,7 @@ export function DataTable({ columns, rows, empty = 'No hay registros.', actions,
           const primaryValue = mobileLayout.primaryColumn ? getColumnValue(row, mobileLayout.primaryColumn) : row.id
           const secondaryValue = mobileLayout.secondaryColumn ? getColumnValue(row, mobileLayout.secondaryColumn) : null
           return (
-            <article key={row.id} className={`mobile-data-card${expanded ? ' is-expanded' : ''}`}>
+            <article key={row.id} className={`mobile-data-card${expanded ? ' is-expanded' : ''}${String(row.id) === String(highlightedRowId) ? ' is-highlighted-row' : ''}`}>
               <div className="mobile-card-top">
                 <div className="mobile-card-heading">
                   <strong>{primaryValue}</strong>

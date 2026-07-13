@@ -8,6 +8,7 @@ import { DashboardPage } from './features/dashboard/DashboardPage.jsx'
 import { ClientsPage } from './features/clients/ClientsPage.jsx'
 import { PatientsPage } from './features/patients/PatientsPage.jsx'
 import { AgendaCenterPage } from './features/agendaCenter/AgendaCenterPage.jsx'
+import { GroomingPage } from './features/grooming/GroomingPage.jsx'
 import { PurchasesPage } from './features/purchases/PurchasesPage.jsx'
 import { SalesCashPage } from './features/salesCash/SalesCashPage.jsx'
 import { BoardingPage } from './features/boarding/BoardingPage.jsx'
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="recetas" element={<Navigate to="/pacientes" replace />} />
 
         <Route path="agenda" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/agenda']}><AgendaCenterPage /></PermissionRoute>} />
+        <Route path="peluqueria" element={<PermissionRoute permission={ROUTE_PERMISSIONS['/peluqueria']}><GroomingPage /></PermissionRoute>} />
         <Route path="recordatorios" element={<Navigate to="/agenda?tab=recordatorios" replace />} />
         <Route path="cola-espera" element={<Navigate to="/agenda?tab=cola-espera" replace />} />
         <Route path="turnos-veterinarios" element={<Navigate to="/agenda?tab=turnos" replace />} />

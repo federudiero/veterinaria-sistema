@@ -61,7 +61,7 @@ export function QuickSalePage() {
   const canWrite = hasPermission('ventas.write')
   const canManageCashSession = hasPermission('caja.close')
   const { clientOptions, patientOptionsForClient, clientMap, patientMap } = useLookups()
-  const products = useCollection('products', { limitCount: 300, orderByField: 'name', orderDirection: 'asc' })
+  const products = useCollection('products', { limitCount: 1000, orderByField: 'name', orderDirection: 'asc' })
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
   const sales = useCollection('sales', {
     where: [{ field: 'date', op: '==', value: todayISO() }],

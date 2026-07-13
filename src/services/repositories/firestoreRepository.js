@@ -205,12 +205,66 @@ function buildCollectionQuery(collectionName, options = {}) {
   return query(collectionRef(collectionName), ...buildCollectionConstraints(options))
 }
 
+async function fetchClientFilteredCollectionPage(collectionName, options = {}) {
+  const pageSize = safeLimit(options.limitCount)
+  const batchSize = Math.min(MAX_LIST_LIMIT, Math.max(pageSize * 3, 60))
+  const maxBatches = 4
+  const matched = []
+  let scanCursor = options.startAfterDoc || null
+  let firstDoc = null
+  let lastScannedDoc = null
+  let scannedHasMore = false
+
+  for (let batchIndex = 0; batchIndex < maxBatches; batchIndex += 1) {
+    const snapshot = await getDocs(buildCollectionQuery(collectionName, {
+      ...options,
+      startAfterDoc: scanCursor,
+      limitCount: batchSize,
+    }))
+
+    if (!firstDoc) firstDoc = snapshot.docs[0] || null
+    lastScannedDoc = snapshot.docs.at(-1) || lastScannedDoc
+    scannedHasMore = snapshot.docs.length === batchSize
+
+    for (const item of snapshot.docs) {
+      const row = { id: item.id, ...item.data() }
+      if (matchesSearch(row, options.searchTerm)) {
+        matched.push({ row, doc: item })
+        if (matched.length > pageSize) {
+          const pageMatches = matched.slice(0, pageSize)
+          return {
+            rows: pageMatches.map((entry) => entry.row),
+            lastDoc: pageMatches.at(-1)?.doc || item,
+            firstDoc,
+            hasMore: true,
+            pageSize,
+          }
+        }
+      }
+    }
+
+    if (!scannedHasMore) break
+    scanCursor = lastScannedDoc
+  }
+
+  const rows = matched.slice(0, pageSize).map((entry) => entry.row)
+
+  return {
+    rows,
+    lastDoc: scannedHasMore ? lastScannedDoc : (matched.at(-1)?.doc || lastScannedDoc || null),
+    firstDoc,
+    hasMore: scannedHasMore,
+    pageSize,
+  }
+}
+
 export async function fetchCollectionPage(collectionName, options = {}) {
+  if (shouldApplySearchOnClient(options)) {
+    return fetchClientFilteredCollectionPage(collectionName, options)
+  }
+
   const snapshot = await getDocs(buildCollectionQuery(collectionName, options))
-  const rawRows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
-  const rows = shouldApplySearchOnClient(options)
-    ? rawRows.filter((item) => matchesSearch(item, options.searchTerm))
-    : rawRows
+  const rows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
   const pageSize = safeLimit(options.limitCount)
 
   return {
@@ -317,6 +371,105 @@ export async function setDocument(collectionName, id, payload) {
   }
   await batch.commit()
   return id
+}
+
+const PRODUCT_CATALOG_IMPORT_BATCH_SIZE = 200
+const PRODUCT_CATALOG_EXISTING_LIMIT = 2500
+
+export async function importProductCatalog(items = [], { onProgress } = {}) {
+  assertDb()
+  const normalizedItems = Array.isArray(items)
+    ? items.filter((item) => item?.id && item?.name)
+    : []
+
+  if (!normalizedItems.length) throw new Error('El catálogo no contiene productos válidos para importar.')
+  if (normalizedItems.length > 2000) throw new Error('El catálogo supera el máximo seguro de 2.000 productos por importación.')
+
+  const existingSnapshot = await getDocs(query(
+    collectionRef('products'),
+    limit(PRODUCT_CATALOG_EXISTING_LIMIT),
+  ))
+
+  if (existingSnapshot.size >= PRODUCT_CATALOG_EXISTING_LIMIT) {
+    throw new Error('Hay demasiados productos existentes para realizar una importación segura sin duplicados.')
+  }
+
+  const existingById = new Map()
+  const existingByCatalogId = new Map()
+  const existingByName = new Map()
+
+  existingSnapshot.docs.forEach((snapshot) => {
+    const data = snapshot.data()
+    existingById.set(snapshot.id, snapshot)
+    if (data.catalogImportId) existingByCatalogId.set(String(data.catalogImportId), snapshot)
+    const normalizedName = normalizeSearchText(data.name)
+    if (normalizedName && !existingByName.has(normalizedName)) existingByName.set(normalizedName, snapshot)
+  })
+
+  let created = 0
+  let updated = 0
+  let processed = 0
+
+  for (let index = 0; index < normalizedItems.length; index += PRODUCT_CATALOG_IMPORT_BATCH_SIZE) {
+    const chunk = normalizedItems.slice(index, index + PRODUCT_CATALOG_IMPORT_BATCH_SIZE)
+    const batch = writeBatch(db)
+    let chunkCreated = 0
+    let chunkUpdated = 0
+
+    chunk.forEach((sourceItem) => {
+      const { id: catalogImportId, ...rawPayload } = sourceItem
+      const normalizedName = normalizeSearchText(rawPayload.name)
+      const existing = existingByCatalogId.get(catalogImportId)
+        || existingById.get(catalogImportId)
+        || existingByName.get(normalizedName)
+      const targetId = existing?.id || catalogImportId
+      const now = serverTimestamp()
+      const payload = cleanPayload({
+        ...rawPayload,
+        catalogImportId,
+        catalogImportedAt: now,
+        updatedAt: now,
+      })
+
+      if (existing) {
+        // Reimportar la lista actualiza catálogo y precios, pero conserva el stock
+        // operativo, el mínimo configurado y el estado activo del producto existente.
+        delete payload.stock
+        delete payload.minStock
+        delete payload.active
+        delete payload.createdAt
+        chunkUpdated += 1
+      } else {
+        payload.createdAt = now
+        chunkCreated += 1
+      }
+
+      batch.set(docRef('products', targetId), withSearchIndex(payload), { merge: true })
+    })
+
+    setAudit(batch, auditPayload({
+      module: 'products',
+      action: 'products.catalog.import',
+      entityId: `megavet_${index + 1}_${index + chunk.length}`,
+      summary: `Importación catálogo Megavet: ${chunk.length} productos`,
+      after: {
+        source: 'LISTA Nº2 JULIO - 3',
+        created: chunkCreated,
+        updated: chunkUpdated,
+        processedFrom: index + 1,
+        processedTo: index + chunk.length,
+      },
+      severity: 'warning',
+    }))
+
+    await batch.commit()
+    created += chunkCreated
+    updated += chunkUpdated
+    processed += chunk.length
+    onProgress?.({ processed, total: normalizedItems.length, created, updated })
+  }
+
+  return { total: normalizedItems.length, created, updated }
 }
 
 

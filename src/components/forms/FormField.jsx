@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react'
-import { normalizeSearchText } from '../../utils/search.js'
+import React, { useMemo } from 'react'
+import { SearchableSelect } from './SearchableSelect.jsx'
 import { TagSelector } from '../tags/TagSelector.jsx'
 
 function optionValue(option) {
@@ -18,28 +18,21 @@ function normalizeArray(value) {
     .filter(Boolean)
 }
 
+function shouldUseAutocomplete(field, options) {
+  if (field.searchable === false) return false
+  if (field.searchable === true) return true
+  if (field.searchPlaceholder) return true
+  if (options.some((option) => option && typeof option === 'object' && (option.keywords || option.searchText))) return true
+  return options.length > 12
+}
+
 export function FormField({ field, value, form = {}, onChange }) {
-  const [optionFilter, setOptionFilter] = useState('')
   const fieldContext = { field, value, form }
   const resolvedOptions = typeof field.options === 'function' ? field.options(fieldContext) : field.options
   const options = Array.isArray(resolvedOptions) ? resolvedOptions : []
-  const selectedOption = options.find((option) => String(optionValue(option)) === String(value ?? ''))
   const resolvedHint = typeof field.hint === 'function' ? field.hint(fieldContext) : field.hint
   const resolvedDisabled = typeof field.disabled === 'function' ? field.disabled(fieldContext) : field.disabled
   const resolvedReadOnly = typeof field.readOnly === 'function' ? field.readOnly(fieldContext) : field.readOnly
-
-  const visibleOptions = useMemo(() => {
-    if (field.type !== 'select') return options
-    const term = normalizeSearchText(optionFilter)
-    const filtered = term
-      ? options.filter((option) => normalizeSearchText(optionLabel(option)).includes(term))
-      : options
-    const limited = filtered.slice(0, field.maxVisibleOptions || 60)
-    if (selectedOption && !limited.some((option) => String(optionValue(option)) === String(optionValue(selectedOption)))) {
-      return [selectedOption, ...limited]
-    }
-    return limited
-  }, [field.type, field.maxVisibleOptions, optionFilter, options, selectedOption])
 
   const commonProps = {
     id: field.name,
@@ -83,6 +76,40 @@ export function FormField({ field, value, form = {}, onChange }) {
     onChange(field.name, next, field)
   }
 
+  if (field.type === 'select') {
+    const autocomplete = shouldUseAutocomplete(field, options)
+    return (
+      <div className={`field field-select${autocomplete ? ' field-autocomplete' : ''}`}>
+        <span>{field.label}</span>
+        {autocomplete ? (
+          <SearchableSelect
+            id={field.name}
+            name={field.name}
+            value={value ?? ''}
+            options={options}
+            placeholder={field.placeholder || 'Seleccionar'}
+            searchPlaceholder={field.searchPlaceholder || 'Buscar opción...'}
+            disabled={resolvedDisabled}
+            required={field.required}
+            maxVisibleOptions={field.maxVisibleOptions || 20}
+            minSearchChars={field.minSearchChars || 2}
+            onChange={(nextValue) => onChange(field.name, nextValue, field)}
+          />
+        ) : (
+          <select {...commonProps}>
+            <option value="">Seleccionar</option>
+            {options.map((option) => (
+              <option key={optionValue(option)} value={optionValue(option)}>
+                {optionLabel(option)}
+              </option>
+            ))}
+          </select>
+        )}
+        {resolvedHint && <small className="field-hint">{resolvedHint}</small>}
+      </div>
+    )
+  }
+
   return (
     <label className={`field field-${field.type || 'text'}`}>
       <span>{field.label}</span>
@@ -118,29 +145,6 @@ export function FormField({ field, value, form = {}, onChange }) {
             </section>
           ))}
         </div>
-      ) : field.type === 'select' ? (
-        <>
-          {field.searchable !== false && options.length > 0 && (
-            <input
-              className="select-filter"
-              value={optionFilter}
-              onChange={(event) => setOptionFilter(event.target.value)}
-              placeholder={field.searchPlaceholder || 'Buscar opción...'}
-              disabled={resolvedDisabled}
-            />
-          )}
-          <select {...commonProps}>
-            <option value="">Seleccionar</option>
-            {visibleOptions.map((option) => (
-              <option key={optionValue(option)} value={optionValue(option)}>
-                {optionLabel(option)}
-              </option>
-            ))}
-          </select>
-          {options.length > visibleOptions.length && (
-            <small className="field-hint">Mostrando {visibleOptions.length} de {options.length}. Escribí para filtrar.</small>
-          )}
-        </>
       ) : field.type === 'checkbox' ? (
         <input {...commonProps} type="checkbox" />
       ) : (

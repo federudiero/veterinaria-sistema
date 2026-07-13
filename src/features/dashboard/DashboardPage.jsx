@@ -33,7 +33,7 @@ export function DashboardPage() {
     orderByField: 'date',
     orderDirection: 'desc',
   })
-  const products = useCollection('products', { limitCount: 300, orderByField: 'name', orderDirection: 'asc' })
+  const products = useCollection('products', { limitCount: 1000, orderByField: 'name', orderDirection: 'asc' })
   const cash = useCollection('cashMovements', {
     where: [{ field: 'date', op: '==', value: today }],
     limitCount: 250,

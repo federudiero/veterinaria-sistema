@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { SEARCH_TERM_MIN_LENGTH, isSearchTermTooShort } from '../../utils/search.js'
 
 function optionLabel(option) {
   if (!option) return ''
@@ -25,6 +26,7 @@ export function ListToolbar({
   const hasStatusFilter = typeof onStatusChange === 'function' && statusOptions.length > 0
   const hasAdvancedFilters = hasDateFilters || hasStatusFilter || Boolean(children)
   const canClear = Boolean(query || dateFrom || dateTo || status || extraActive)
+  const queryTooShort = isSearchTermTooShort(query)
   const statusLabel = useMemo(() => {
     const selected = statusOptions.find((option) => String(typeof option === 'string' ? option : option.value) === String(status || ''))
     return optionLabel(selected)
@@ -42,6 +44,9 @@ export function ListToolbar({
           autoComplete="off"
           enterKeyHint="search"
         />
+        {queryTooShort && (
+          <small className="toolbar-search-hint">Escribí al menos {SEARCH_TERM_MIN_LENGTH} caracteres para buscar.</small>
+        )}
         {hasAdvancedFilters && (
           <button
             className={`btn btn-small toolbar-filter-toggle${filtersOpen ? ' active' : ''}`}

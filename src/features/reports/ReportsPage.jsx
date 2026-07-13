@@ -12,7 +12,7 @@ import { money, sumBy } from '../../utils/formatters.js'
 export function ReportsPage() {
   const sales = useServerCollectionControls('sales', { dateField: 'date', statusField: 'status', orderByField: 'date', orderDirection: 'desc', defaultPageSize: 100 })
   const cash = useServerCollectionControls('cashMovements', { dateField: 'date', statusField: 'status', orderByField: 'date', orderDirection: 'desc', defaultPageSize: 100 })
-  const products = useCollection('products', { limitCount: 300, orderByField: 'name', orderDirection: 'asc' })
+  const products = useCollection('products', { limitCount: 1000, orderByField: 'name', orderDirection: 'asc' })
   const appointmentsCount = useCollectionCount('appointments', { where: [
     ...(sales.dateFrom ? [{ field: 'date', op: '>=', value: sales.dateFrom }] : []),
     ...(sales.dateTo ? [{ field: 'date', op: '<=', value: sales.dateTo }] : []),

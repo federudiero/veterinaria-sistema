@@ -182,11 +182,16 @@ export function printDocument({ title, subtitle = '', clinic = {}, sections = []
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'noopener,noreferrer,width=980,height=760')
+  const win = window.open('', '_blank', 'width=980,height=760')
   if (!win) throw new Error('El navegador bloqueó la ventana de impresión. Permití popups para generar el PDF.')
-  win.document.open()
-  win.document.write(html)
-  win.document.close()
+  try {
+    win.document.open()
+    win.document.write(html)
+    win.document.close()
+  } catch (error) {
+    win.close?.()
+    throw new Error('No se pudo preparar la ventana de impresión. Reintentá y verificá que el navegador permita ventanas emergentes.')
+  }
 }
 
 export function printClinicalHistoryDocument({ clinic, client, patient, records = [], vaccines = [], prescriptions = [], clinicalFiles = [] }) {

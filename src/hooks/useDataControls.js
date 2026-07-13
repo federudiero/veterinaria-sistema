@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { DEFAULT_PAGE_SIZE } from '../config/performance.js'
-import { matchesSearch } from '../utils/search.js'
+import { effectiveSearchTerm, matchesSearch } from '../utils/search.js'
 
 export function useDataControls(items, { searchFields = [], defaultPageSize = DEFAULT_PAGE_SIZE } = {}) {
   const [query, setQuery] = useState('')
@@ -8,8 +8,9 @@ export function useDataControls(items, { searchFields = [], defaultPageSize = DE
   const [pageSize, setPageSize] = useState(defaultPageSize)
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return items
-    return items.filter((item) => matchesSearch(item, query, searchFields))
+    const safeQuery = effectiveSearchTerm(query)
+    if (!safeQuery) return items
+    return items.filter((item) => matchesSearch(item, safeQuery, searchFields))
   }, [items, query, searchFields])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))

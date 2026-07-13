@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
 import { Modal } from '../../components/ui/Modal.jsx'
@@ -104,7 +105,10 @@ export function CrudPage({
   const tagsCollection = useCollection('tags', { limitCount: 250, orderByField: 'name', orderDirection: 'asc' })
   const availableTags = useMemo(() => enableTags ? tagsForScope(tagsCollection.items, resolvedTagScope) : [], [enableTags, resolvedTagScope, tagsCollection.items])
   const tagOptions = useMemo(() => tagOptionsForScope(tagsCollection.items, resolvedTagScope), [resolvedTagScope, tagsCollection.items])
-  const [query, setQuery] = useState('')
+  const [searchParams] = useSearchParams()
+  const queryFromUrl = searchParams.get('q') || searchParams.get('search') || ''
+  const highlightedRowId = searchParams.get('focus') || searchParams.get('id') || ''
+  const [query, setQuery] = useState(queryFromUrl)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -159,6 +163,10 @@ export function CrudPage({
   const [saving, setSaving] = useState(false)
   const formId = useId()
   const feedback = useFeedback()
+
+  useEffect(() => {
+    setQuery(queryFromUrl)
+  }, [queryFromUrl])
 
   useEffect(() => {
     list.reset?.()
@@ -320,6 +328,7 @@ export function CrudPage({
             columns={effectiveColumns}
             empty={emptyState}
             mobile={mobile}
+            highlightedRowId={highlightedRowId}
             actions={(row) => (
               <>
                 <IndividualExportActions

@@ -5,12 +5,21 @@ function toMap(items, labelFactory) {
   return Object.fromEntries(items.map((item) => [item.id, labelFactory(item)]))
 }
 
+function compactKeywords(...values) {
+  return values
+    .flatMap((value) => Array.isArray(value) ? value : [value])
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean)
+    .join(' ')
+}
+
 const lookupOptions = { limitCount: 300, orderByField: 'name', orderDirection: 'asc' }
+const productLookupOptions = { limitCount: 1000, orderByField: 'name', orderDirection: 'asc' }
 
 export function useLookups() {
   const clients = useCollection('clients', lookupOptions)
   const patients = useCollection('patients', lookupOptions)
-  const products = useCollection('products', lookupOptions)
+  const products = useCollection('products', productLookupOptions)
   const suppliers = useCollection('suppliers', lookupOptions)
 
   return useMemo(() => {
@@ -22,8 +31,48 @@ export function useLookups() {
     const patientMap = toMap(patients.items, (item) => `${item.name}${clientMap[item.clientId] ? ` · ${clientMap[item.clientId]}` : ''}`)
     const productMap = toMap(products.items, (item) => item.name)
     const supplierMap = toMap(suppliers.items, (item) => item.name)
-    const clientOptions = clients.items.map((item) => ({ value: item.id, label: `${item.name}${item.phone ? ` · ${item.phone}` : ''}` }))
-    const patientOptions = patients.items.map((item) => ({ value: item.id, label: patientMap[item.id], clientId: item.clientId || '' }))
+
+    const clientOptions = clients.items.map((item) => ({
+      value: item.id,
+      label: `${item.name}${item.phone ? ` · ${item.phone}` : ''}`,
+      keywords: compactKeywords(
+        item.name,
+        item.phone,
+        item.email,
+        item.dni,
+        item.document,
+        item.cuit,
+        item.address,
+        item.city,
+        item.segment,
+        item.status,
+        item.notes,
+      ),
+    }))
+
+    const patientOptions = patients.items.map((item) => {
+      const client = clientById[item.clientId] || {}
+      return {
+        value: item.id,
+        label: patientMap[item.id],
+        clientId: item.clientId || '',
+        keywords: compactKeywords(
+          item.name,
+          client.name,
+          client.phone,
+          client.email,
+          item.species,
+          item.breed,
+          item.chip,
+          item.color,
+          item.sex,
+          item.status,
+          item.allergies,
+          item.alerts,
+        ),
+      }
+    })
+
     const patientOptionsForClient = (clientId, selectedPatientId = '') => {
       const selected = selectedPatientId ? patientOptions.find((option) => String(option.value) === String(selectedPatientId)) : null
       const filtered = clientId
@@ -39,6 +88,7 @@ export function useLookups() {
       clients: clients.items,
       patients: patients.items,
       products: products.items,
+      refreshProducts: products.refresh,
       suppliers: suppliers.items,
       clientMap,
       patientMap,
@@ -51,8 +101,16 @@ export function useLookups() {
       clientOptions,
       patientOptions,
       patientOptionsForClient,
-      productOptions: products.items.map((item) => ({ value: item.id, label: `${item.name}${item.sku ? ` · ${item.sku}` : ''}` })),
-      supplierOptions: suppliers.items.map((item) => ({ value: item.id, label: item.name })),
+      productOptions: products.items.map((item) => ({
+        value: item.id,
+        label: `${item.name}${item.sku ? ` · ${item.sku}` : ''}`,
+        keywords: compactKeywords(item.name, item.sku, item.barcode, item.category, item.type, item.unit, item.description, item.notes),
+      })),
+      supplierOptions: suppliers.items.map((item) => ({
+        value: item.id,
+        label: item.name,
+        keywords: compactKeywords(item.name, item.cuit, item.phone, item.email, item.address, item.contactName, item.notes),
+      })),
     }
-  }, [clients.items, patients.items, products.items, suppliers.items])
+  }, [clients.items, patients.items, products.items, products.refresh, suppliers.items])
 }

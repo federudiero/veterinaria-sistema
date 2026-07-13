@@ -56,18 +56,32 @@ const supplierInitialForm = {
 
 const INVENTORY_TABS = ['purchases', 'products', 'suppliers', 'future']
 
+const MEGAVET_CATALOG_URL = `${import.meta.env.BASE_URL}catalogs/megavet-lista-2-julio-3.json`
+const MEGAVET_CATALOG_SUMMARY = {
+  total: 880,
+  dogs: 545,
+  cats: 335,
+  zeroPrice: 1,
+}
+
 export function PurchasesPage() {
   const purchases = useServerCollectionControls('purchases', { dateField: 'date', statusField: 'status', orderByField: 'date', orderDirection: 'desc' })
   const productsPanel = useServerCollectionControls('products', { dateField: '', statusField: '', orderByField: 'name', orderDirection: 'asc' })
   const suppliersPanel = useServerCollectionControls('suppliers', { dateField: '', statusField: '', orderByField: 'name', orderDirection: 'asc' })
   const shifts = useCollection('shifts', { limitCount: 100, orderByField: 'date', orderDirection: 'desc' })
-  const { supplierOptions, productOptions, supplierMap, productMap, supplierById, productById, products } = useLookups()
+  const { supplierOptions, productOptions, supplierMap, productMap, supplierById, productById, products, refreshProducts } = useLookups()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab') || ''
   const [activeTab, setActiveTabState] = useState(INVENTORY_TABS.includes(requestedTab) ? requestedTab : 'purchases')
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false)
   const [productModalOpen, setProductModalOpen] = useState(false)
   const [supplierModalOpen, setSupplierModalOpen] = useState(false)
+  const [catalogImportOpen, setCatalogImportOpen] = useState(false)
+  const [catalogItems, setCatalogItems] = useState([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [catalogImporting, setCatalogImporting] = useState(false)
+  const [catalogImportProgress, setCatalogImportProgress] = useState({ processed: 0, total: MEGAVET_CATALOG_SUMMARY.total })
+  const [catalogImportResult, setCatalogImportResult] = useState(null)
   const [editingProduct, setEditingProduct] = useState(null)
   const [editingSupplier, setEditingSupplier] = useState(null)
   const [voidingPurchase, setVoidingPurchase] = useState(null)
@@ -307,6 +321,59 @@ export function PurchasesPage() {
     }
   }
 
+  async function loadMegavetCatalog() {
+    if (catalogItems.length) return catalogItems
+    setCatalogLoading(true)
+    try {
+      const response = await fetch(MEGAVET_CATALOG_URL, { cache: 'no-store' })
+      if (!response.ok) throw new Error('No se pudo leer el archivo del catálogo Megavet.')
+      const items = await response.json()
+      if (!Array.isArray(items) || items.length !== MEGAVET_CATALOG_SUMMARY.total) {
+        throw new Error('El catálogo Megavet está incompleto o tiene un formato inválido.')
+      }
+      setCatalogItems(items)
+      return items
+    } finally {
+      setCatalogLoading(false)
+    }
+  }
+
+  async function openMegavetCatalogImport() {
+    setCatalogImportResult(null)
+    setCatalogImportOpen(true)
+    try {
+      await loadMegavetCatalog()
+    } catch (error) {
+      feedback.error(error?.message || 'No se pudo preparar el catálogo de productos.')
+    }
+  }
+
+  async function importMegavetCatalog() {
+    if (!canWriteStock) {
+      feedback.warning('No tenés permiso para importar productos.')
+      return
+    }
+
+    setCatalogImporting(true)
+    setCatalogImportResult(null)
+    setCatalogImportProgress({ processed: 0, total: MEGAVET_CATALOG_SUMMARY.total })
+
+    try {
+      const items = await loadMegavetCatalog()
+      const result = await repository.importProductCatalog(items, {
+        onProgress: (progress) => setCatalogImportProgress(progress),
+      })
+      setCatalogImportResult(result)
+      productsPanel.refresh?.()
+      refreshProducts?.()
+      feedback.success(`Catálogo importado: ${result.created} creados y ${result.updated} actualizados.`)
+    } catch (error) {
+      feedback.error(error?.message || 'No se pudo importar el catálogo de productos.')
+    } finally {
+      setCatalogImporting(false)
+    }
+  }
+
   return (
     <section>
       <SectionHeader
@@ -327,6 +394,7 @@ export function PurchasesPage() {
               ]}
               fileLabel="compras"
             />
+            {canWriteStock && activeTab === 'products' && <button className="btn" onClick={openMegavetCatalogImport}>Importar lista Megavet</button>}
             {canWriteStock && <button className="btn" onClick={() => openProductModal()}>Nuevo producto</button>}
             {canWritePurchases && <button className="btn" onClick={() => openSupplierModal()}>Nuevo proveedor</button>}
             {canWritePurchases && <button className="btn btn-primary" onClick={() => setPurchaseModalOpen(true)}>Nueva compra</button>}
@@ -461,6 +529,74 @@ export function PurchasesPage() {
             )}
             {selectedProduct && <div className="preview-box">Stock actual: {selectedProduct.stock} · Nuevo stock estimado: {numberValue(selectedProduct.stock) + numberValue(purchaseForm.qty)}</div>}
           </form>
+        </Modal>
+      )}
+
+      {catalogImportOpen && (
+        <Modal
+          title="Importar catálogo Megavet"
+          onClose={() => !catalogImporting && setCatalogImportOpen(false)}
+          footer={
+            <>
+              <button className="btn" type="button" onClick={() => setCatalogImportOpen(false)} disabled={catalogImporting}>
+                {catalogImportResult ? 'Cerrar' : 'Cancelar'}
+              </button>
+              {!catalogImportResult && (
+                <button className="btn btn-primary" type="button" onClick={importMegavetCatalog} disabled={catalogImporting || catalogLoading || !catalogItems.length}>
+                  {catalogLoading ? 'Preparando...' : catalogImporting ? 'Importando...' : `Importar ${MEGAVET_CATALOG_SUMMARY.total} productos`}
+                </button>
+              )}
+            </>
+          }
+        >
+          <div className="inventory-panel-stack">
+            <div className="system-card compact-card">
+              <strong>Lista Nº2 Julio - Megavet Distribuidora</strong>
+              <p>
+                Se cargarán {MEGAVET_CATALOG_SUMMARY.total} productos: {MEGAVET_CATALOG_SUMMARY.dogs} para perro y {MEGAVET_CATALOG_SUMMARY.cats} para gato.
+                La columna «Precio» del PDF se guarda como costo y «Público» como precio de venta.
+              </p>
+            </div>
+
+            <div className="system-card system-card-warning compact-card">
+              <strong>Importación segura</strong>
+              <p>
+                Los productos nuevos se crean con stock 0. Si un producto ya existe, se actualizan sus datos y precios sin modificar el stock,
+                el stock mínimo ni su estado activo. No se elimina ningún producto existente.
+              </p>
+              {MEGAVET_CATALOG_SUMMARY.zeroPrice > 0 && (
+                <p>{MEGAVET_CATALOG_SUMMARY.zeroPrice} producto con precio $0 quedará inactivo para evitar ventas accidentales.</p>
+              )}
+            </div>
+
+            {catalogLoading && (
+              <div className="preview-box">Preparando el catálogo...</div>
+            )}
+
+            {catalogImporting && (
+              <div className="preview-box">
+                Importando {catalogImportProgress.processed || 0} de {catalogImportProgress.total || MEGAVET_CATALOG_SUMMARY.total} productos...
+              </div>
+            )}
+
+            {catalogImportResult && (
+              <div className="system-card system-card-success compact-card">
+                <strong>Importación terminada</strong>
+                <p>
+                  {catalogImportResult.created} productos creados y {catalogImportResult.updated} actualizados.
+                </p>
+              </div>
+            )}
+
+            <DataTable
+              rows={catalogItems.slice(0, 6)}
+              columns={[
+                { key: 'name', label: 'Ejemplo de producto' },
+                { key: 'cost', label: 'Costo', render: (row) => money(row.cost) },
+                { key: 'price', label: 'Público', render: (row) => money(row.price) },
+              ]}
+            />
+          </div>
         </Modal>
       )}
 

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { DEFAULT_PAGE_SIZE } from '../config/performance.js'
+import { effectiveSearchTerm } from '../utils/search.js'
 import { useDebouncedValue } from './useDebouncedValue.js'
 import { usePagedCollection } from './usePagedCollection.js'
 
@@ -27,6 +28,7 @@ export function useServerCollectionControls(collectionName, {
   const [status, setStatus] = useState(initialStatus)
   const [pageSize, setPageSize] = useState(defaultPageSize)
   const debouncedQuery = useDebouncedValue(query, 300)
+  const safeSearchTerm = effectiveSearchTerm(debouncedQuery)
 
   const where = useMemo(() => [
     ...buildDateWhere(dateField, dateFrom, dateTo),
@@ -35,7 +37,7 @@ export function useServerCollectionControls(collectionName, {
   ], [dateField, dateFrom, dateTo, statusField, status, extraWhere])
 
   const list = usePagedCollection(collectionName, {
-    searchTerm: debouncedQuery,
+    searchTerm: safeSearchTerm,
     where,
     orderByField,
     orderDirection,

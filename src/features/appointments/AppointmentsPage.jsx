@@ -1,4 +1,5 @@
 import React, { useId, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { SectionHeader } from '../../components/ui/SectionHeader.jsx'
 import { DataTable } from '../../components/ui/DataTable.jsx'
 import { Modal } from '../../components/ui/Modal.jsx'
@@ -80,6 +81,23 @@ function rowSearch(row, clientMap, patientMap) {
   ].filter(Boolean).join(' '))
 }
 
+
+function buildEntityPath(path, id, searchLabel) {
+  const params = new URLSearchParams()
+  if (id) params.set('focus', id)
+  if (searchLabel) params.set('q', searchLabel)
+  const query = params.toString()
+  return query ? `${path}?${query}` : path
+}
+
+function EntityShortcutLink({ to, id, searchLabel, children }) {
+  if (!id || !children || children === '-') return children || '-'
+  return (
+    <Link className="table-entity-link" to={buildEntityPath(to, id, searchLabel || String(children))}>
+      {children}
+    </Link>
+  )
+}
 const initialForm = {
   date: todayISO(),
   time: '09:00',
@@ -169,8 +187,33 @@ export function AppointmentsPage() {
 
   const columns = [
     { key: 'time', label: 'Hora' },
-    { key: 'clientId', label: 'Cliente', render: (row) => clientMap[row.clientId] || '-' },
-    { key: 'patientId', label: 'Paciente', render: (row) => patientMap[row.patientId] || '-' },
+    {
+      key: 'clientId',
+      label: 'Cliente',
+      exportValue: (row) => clientMap[row.clientId] || row.clientName || '-',
+      render: (row) => {
+        const label = clientMap[row.clientId] || row.clientName || '-'
+        return (
+          <EntityShortcutLink to="/clientes" id={row.clientId} searchLabel={label !== '-' ? label : ''}>
+            {label}
+          </EntityShortcutLink>
+        )
+      },
+    },
+    {
+      key: 'patientId',
+      label: 'Paciente',
+      exportValue: (row) => patientMap[row.patientId] || row.patientName || '-',
+      render: (row) => {
+        const label = patientMap[row.patientId] || row.patientName || '-'
+        const searchLabel = patientById[row.patientId]?.name || row.patientName || label
+        return (
+          <EntityShortcutLink to="/pacientes" id={row.patientId} searchLabel={searchLabel !== '-' ? searchLabel : ''}>
+            {label}
+          </EntityShortcutLink>
+        )
+      },
+    },
     { key: 'service', label: 'Servicio' },
     { key: 'professional', label: 'Profesional' },
     { key: 'status', label: 'Estado', render: (row) => <StatusBadge tone={statusTone(row.status)}>{row.status || 'Pendiente'}</StatusBadge> },

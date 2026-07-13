@@ -1,6 +1,6 @@
 import { seedData } from '../../data/seedData.js'
 import { EXPORT_BATCH_SIZE, MAX_EXPORT_ROWS, MAX_LIST_LIMIT } from '../../config/performance.js'
-import { buildSearchPayload, matchesSearch } from '../../utils/search.js'
+import { buildSearchPayload, matchesSearch, normalizeSearchText } from '../../utils/search.js'
 import { calculateSalePricing } from '../../utils/salesPricing.js'
 
 const STORAGE_KEY = 'vetgest-pro-comercial-v10'
@@ -274,6 +274,82 @@ export async function setDocument(collectionName, id, payload) {
   writeState(state)
   emitMany([collectionName, 'auditLogs'])
   return id
+}
+
+export async function importProductCatalog(items = [], { onProgress } = {}) {
+  const normalizedItems = Array.isArray(items)
+    ? items.filter((item) => item?.id && item?.name)
+    : []
+  if (!normalizedItems.length) throw new Error('El catálogo no contiene productos válidos para importar.')
+
+  const state = readState()
+  const now = nowISO()
+  const currentProducts = state.products || []
+  const existingById = new Map(currentProducts.map((item) => [item.id, item]))
+  const existingByCatalogId = new Map(currentProducts
+    .filter((item) => item.catalogImportId)
+    .map((item) => [String(item.catalogImportId), item]))
+  const existingByName = new Map()
+  currentProducts.forEach((item) => {
+    const key = normalizeSearchText(item.name)
+    if (key && !existingByName.has(key)) existingByName.set(key, item)
+  })
+
+  const nextProductsById = new Map(currentProducts.map((item) => [item.id, item]))
+  let created = 0
+  let updated = 0
+
+  normalizedItems.forEach((sourceItem, index) => {
+    const { id: catalogImportId, ...rawPayload } = sourceItem
+    const normalizedName = normalizeSearchText(rawPayload.name)
+    const existing = existingByCatalogId.get(catalogImportId)
+      || existingById.get(catalogImportId)
+      || existingByName.get(normalizedName)
+    const targetId = existing?.id || catalogImportId
+    const payload = {
+      ...rawPayload,
+      catalogImportId,
+      catalogImportedAt: now,
+      updatedAt: now,
+    }
+
+    if (existing) {
+      payload.stock = existing.stock
+      payload.minStock = existing.minStock
+      payload.active = existing.active
+      payload.createdAt = existing.createdAt
+      updated += 1
+    } else {
+      payload.createdAt = now
+      created += 1
+    }
+
+    nextProductsById.set(targetId, indexDocument({
+      ...(existing || {}),
+      ...payload,
+      id: targetId,
+    }))
+
+    if ((index + 1) % 200 === 0 || index + 1 === normalizedItems.length) {
+      onProgress?.({ processed: index + 1, total: normalizedItems.length, created, updated })
+    }
+  })
+
+  state.products = Array.from(nextProductsById.values())
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es'))
+
+  addAudit(state, {
+    module: 'products',
+    action: 'products.catalog.import',
+    entityId: 'megavet-lista-2-julio-3',
+    summary: `Importación catálogo Megavet: ${normalizedItems.length} productos`,
+    after: { source: 'LISTA Nº2 JULIO - 3', created, updated },
+    severity: 'warning',
+  })
+
+  writeState(state)
+  emitMany(['products', 'auditLogs'])
+  return { total: normalizedItems.length, created, updated }
 }
 
 
